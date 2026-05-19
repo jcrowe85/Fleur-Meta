@@ -1,0 +1,19 @@
+# Secrets
+.env
+.env.*
+
+# Local caches and generated output
+.cache/
+dashboard.html
+
+# Editor / tooling state
+.claude/
+.vscode/
+.idea/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
