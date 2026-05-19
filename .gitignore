@@ -2,9 +2,8 @@
 .env
 .env.*
 
-# Local caches and generated output
+# Local caches
 .cache/
-dashboard.html
 
 # Editor / tooling state
 .claude/

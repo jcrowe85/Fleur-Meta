@@ -1,0 +1,1184 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Meta Ads Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0b0f17;
+    --panel: #131a26;
+    --panel-2: #1a2333;
+    --border: #243049;
+    --text: #e6ecf5;
+    --muted: #8a98b2;
+    --accent: #5b8def;
+    --ok: #36c98b;
+    --warn: #f0b400;
+    --bad: #ef5a5a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+  }
+  header {
+    padding: 28px 40px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex; justify-content: space-between; align-items: end; gap: 24px;
+  }
+  header h1 { margin: 0; font-size: 22px; letter-spacing: -0.01em; }
+  header .meta { color: var(--muted); font-size: 13px; }
+  main { padding: 24px 40px 60px; max-width: 1500px; margin: 0 auto; }
+  section { margin-bottom: 36px; }
+  h2 {
+    font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--muted); margin: 0 0 14px; font-weight: 600;
+  }
+  .summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+  .stat {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+    padding: 16px 18px;
+  }
+  .stat .label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+  .stat .value { font-size: 24px; font-weight: 600; margin-top: 6px; letter-spacing: -0.01em; }
+  .stat .sub { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .stat.hero .value { color: var(--accent); }
+
+  .top-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+  .top-card {
+    background: linear-gradient(180deg, var(--panel-2), var(--panel));
+    border: 1px solid var(--border); border-radius: 14px; padding: 18px;
+    position: relative; overflow: hidden;
+  }
+  .top-card .rank {
+    position: absolute; top: 14px; right: 16px;
+    color: var(--accent); font-weight: 700; font-size: 13px;
+    background: rgba(91,141,239,0.12); padding: 4px 10px; border-radius: 999px;
+  }
+  .top-name {
+    font-weight: 600; font-size: 14px; margin-bottom: 14px;
+    padding-right: 50px; line-height: 1.35;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .top-roas {
+    font-size: 36px; font-weight: 700; letter-spacing: -0.02em;
+    color: var(--ok); margin-bottom: 14px;
+  }
+  .top-stats {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 10px 16px;
+    padding: 12px 0; border-top: 1px solid var(--border); margin-bottom: 12px;
+  }
+  .top-stats > div { display: flex; flex-direction: column; }
+  .top-stats span { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .top-stats strong { font-size: 14px; font-weight: 600; margin-top: 2px; }
+
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 18px; }
+  .chart-wrap { height: 360px; }
+
+  table {
+    width: 100%; border-collapse: collapse; font-size: 13px;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 14px; overflow: hidden;
+  }
+  thead th {
+    text-align: left; font-weight: 600; font-size: 11px; text-transform: uppercase;
+    letter-spacing: 0.06em; color: var(--muted);
+    padding: 12px 14px; background: var(--panel-2); border-bottom: 1px solid var(--border);
+    position: sticky; top: 0; cursor: pointer; user-select: none;
+  }
+  thead th.num { text-align: right; }
+  thead th:hover { color: var(--text); }
+  tbody td { padding: 11px 14px; border-bottom: 1px solid var(--border); }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover { background: rgba(91,141,239,0.05); }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  td.name { max-width: 360px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  td.roas { font-weight: 600; color: var(--ok); }
+
+  .badge {
+    display: inline-block; font-size: 10px; padding: 3px 8px; border-radius: 999px;
+    text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;
+  }
+  .badge.ok { background: rgba(54,201,139,0.15); color: var(--ok); }
+  .badge.warn { background: rgba(240,180,0,0.15); color: var(--warn); }
+  .badge.bad { background: rgba(239,90,90,0.15); color: var(--bad); }
+  .badge.muted { background: rgba(138,152,178,0.15); color: var(--muted); }
+
+  .empty { color: var(--muted); padding: 24px; text-align: center; }
+  .search {
+    width: 100%; max-width: 320px; padding: 9px 12px; border-radius: 8px;
+    background: var(--panel-2); border: 1px solid var(--border); color: var(--text);
+    font-size: 13px; margin-bottom: 12px;
+  }
+  .search:focus { outline: none; border-color: var(--accent); }
+
+  /* Refresh button */
+  .refresh-wrap { display: flex; align-items: center; gap: 12px; }
+  .refresh-btn {
+    background: var(--accent); color: #fff; border: none; border-radius: 8px;
+    padding: 9px 16px; font-size: 13px; font-weight: 600; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 8px;
+    transition: background 0.12s, opacity 0.12s;
+  }
+  .refresh-btn:hover:not(:disabled) { background: #4a7adb; }
+  .refresh-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+  .refresh-btn .spinner {
+    width: 12px; height: 12px; border: 2px solid rgba(255,255,255,0.4);
+    border-top-color: #fff; border-radius: 50%; display: none;
+    animation: spin 0.8s linear infinite;
+  }
+  .refresh-btn.is-running .spinner { display: inline-block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .refresh-status { font-size: 12px; color: var(--muted); }
+  .refresh-status.error { color: var(--bad); }
+  .refresh-toast {
+    position: fixed; bottom: 24px; right: 24px; z-index: 200;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+    padding: 12px 16px; font-size: 13px; box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    display: none; max-width: 380px;
+  }
+  .refresh-toast.show { display: block; }
+  .refresh-toast.warn { border-color: var(--warn); }
+  .refresh-toast.bad { border-color: var(--bad); }
+
+  /* Ad grid */
+  .ad-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
+  .ad-card {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+    overflow: hidden; cursor: pointer; transition: transform 0.12s, border-color 0.12s;
+    position: relative; display: flex; flex-direction: column;
+  }
+  .ad-card:hover { transform: translateY(-2px); border-color: var(--accent); }
+  .ad-rank {
+    position: absolute; top: 8px; left: 8px; z-index: 2;
+    background: rgba(0,0,0,0.7); color: #fff; font-size: 11px; font-weight: 700;
+    padding: 3px 8px; border-radius: 999px;
+  }
+  .ad-thumb {
+    position: relative; aspect-ratio: 1 / 1; background: #000;
+    display: flex; align-items: center; justify-content: center; overflow: hidden;
+  }
+  .ad-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .ad-thumb-empty { color: var(--muted); font-size: 12px; background: var(--panel-2); }
+  .ad-video-badge {
+    position: absolute; bottom: 8px; right: 8px;
+    background: rgba(0,0,0,0.75); color: #fff; font-size: 11px; font-weight: 600;
+    padding: 3px 8px; border-radius: 4px;
+  }
+  .ad-meta { padding: 12px 14px; flex: 1; display: flex; flex-direction: column; gap: 6px; }
+  .ad-name {
+    font-size: 13px; font-weight: 600; line-height: 1.3;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .ad-campaign {
+    font-size: 11px; color: var(--muted); white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis;
+  }
+  .ad-stats {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-top: auto; padding-top: 8px; border-top: 1px solid var(--border);
+  }
+  .ad-roas { font-size: 18px; font-weight: 700; letter-spacing: -0.01em; }
+  .ad-roas.ok { color: var(--ok); }
+  .ad-roas.warn { color: var(--warn); }
+  .ad-roas.muted { color: var(--muted); }
+  .ad-secondary { display: flex; flex-direction: column; align-items: flex-end; gap: 2px;
+    font-size: 11px; color: var(--muted); }
+
+  /* Modal */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 100;
+    display: none; align-items: center; justify-content: center; padding: 20px;
+    backdrop-filter: blur(4px);
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 16px;
+    max-width: 920px; width: 100%; max-height: 90vh; overflow: auto;
+    display: grid; grid-template-columns: 1fr 1fr;
+  }
+  @media (max-width: 720px) { .modal { grid-template-columns: 1fr; } }
+  .modal-media {
+    background: #000; min-height: 320px;
+    display: flex; align-items: center; justify-content: center; position: relative;
+  }
+  .modal-media img, .modal-media video { width: 100%; height: 100%; max-height: 90vh; object-fit: contain; }
+  .modal-body { padding: 24px; display: flex; flex-direction: column; gap: 14px; overflow: auto; }
+  .modal-close {
+    position: absolute; top: 12px; right: 16px; background: rgba(0,0,0,0.5); color: #fff;
+    border: none; border-radius: 999px; width: 32px; height: 32px; font-size: 18px;
+    cursor: pointer; z-index: 2;
+  }
+  .modal h3 { margin: 0; font-size: 16px; line-height: 1.4; }
+  .modal .modal-title { font-size: 14px; font-weight: 600; color: var(--accent); }
+  .modal .modal-copy { font-size: 13px; color: var(--text); line-height: 1.5;
+    background: var(--panel-2); padding: 12px; border-radius: 8px;
+    max-height: 200px; overflow: auto; }
+  .modal-stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .modal-stat { background: var(--panel-2); padding: 10px 12px; border-radius: 8px; }
+  .modal-stat .label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+  .modal-stat .value { font-size: 16px; font-weight: 600; margin-top: 2px; }
+  .modal-actions { display: flex; gap: 8px; margin-top: auto; padding-top: 12px; }
+  .modal-actions a {
+    background: var(--accent); color: #fff; text-decoration: none;
+    padding: 9px 14px; border-radius: 8px; font-size: 13px; font-weight: 600;
+  }
+  .modal-actions a.secondary { background: var(--panel-2); color: var(--text); border: 1px solid var(--border); }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Meta Ads Dashboard</h1>
+    <div class="meta">Window: last 30d &middot; 2 campaigns with spend &middot; 46 total</div>
+  </div>
+  <div class="refresh-wrap">
+    <div class="refresh-status" id="refreshStatus">Generated 2026-05-19 11:15</div>
+    <button class="refresh-btn" id="refreshBtn" style="display:none">
+      <span class="spinner"></span>
+      <span class="label">Refresh</span>
+    </button>
+  </div>
+</header>
+<div class="refresh-toast" id="refreshToast"></div>
+
+<main>
+  <section>
+    <h2>Summary</h2>
+    <div class="summary">
+      <div class="stat hero">
+        <div class="label">ROAS</div>
+        <div class="value">0.89x</div>
+        <div class="sub">Revenue / Spend</div>
+      </div>
+      <div class="stat">
+        <div class="label">Spend</div>
+        <div class="value">$6,117.11</div>
+      </div>
+      <div class="stat">
+        <div class="label">Revenue</div>
+        <div class="value">$5,436.10</div>
+      </div>
+      <div class="stat">
+        <div class="label">Purchases</div>
+        <div class="value">72</div>
+        <div class="sub">CPA $84.96</div>
+      </div>
+      <div class="stat">
+        <div class="label">Impressions</div>
+        <div class="value">114,876</div>
+        <div class="sub">CTR 6.97%</div>
+      </div>
+      <div class="stat">
+        <div class="label">Clicks</div>
+        <div class="value">8,011</div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Top Performers — Ranked by ROAS</h2>
+    <div class="top-grid">
+      
+    <div class="top-card">
+      <div class="rank">#1</div>
+      <div class="top-name" title="120240367406930479">CBO | Tiktok Rip Winners | Group 1</div>
+      <div class="top-roas">1.05x</div>
+      <div class="top-stats">
+        <div><span>Spend</span><strong>$3,101.11</strong></div>
+        <div><span>Revenue</span><strong>$3,241.70</strong></div>
+        <div><span>Purchases</span><strong>44</strong></div>
+        <div><span>CPA</span><strong>$70.48</strong></div>
+      </div>
+      <span class="badge muted">PAUSED</span>
+    </div>
+    
+
+    <div class="top-card">
+      <div class="rank">#2</div>
+      <div class="top-name" title="120241872470790479">CBO | Tiktok Rip Winners | Group 3</div>
+      <div class="top-roas">0.73x</div>
+      <div class="top-stats">
+        <div><span>Spend</span><strong>$3,016.00</strong></div>
+        <div><span>Revenue</span><strong>$2,194.40</strong></div>
+        <div><span>Purchases</span><strong>28</strong></div>
+        <div><span>CPA</span><strong>$107.71</strong></div>
+      </div>
+      <span class="badge muted">PAUSED</span>
+    </div>
+    
+    </div>
+  </section>
+
+  
+  <section>
+    <h2>Top 30 Ads by Spend <span style="font-size:11px;color:var(--accent);background:rgba(91,141,239,0.12);padding:3px 8px;border-radius:999px;text-transform:none;letter-spacing:0;margin-left:6px">max history (~36mo)</span> &middot; <span style="text-transform:none;color:var(--muted);font-weight:400">30 with previews</span></h2>
+    
+    <input type="text" class="search" id="adSearch" placeholder="Filter ads…" />
+    <div class="ad-grid" id="adGrid">
+      
+    <div class="ad-card" data-id="120240367442020479" data-name="New Sales Ad" data-title="" data-body="" data-thumb="https://scontent-dfw5-2.xx.fbcdn.net/v/t15.5256-10/613669553_1549960262789457_9064644922313382264_n.jpg?_nc_cat=108&amp;ccb=1-7&amp;_nc_ohc=u5nC0Y7HQ1EQ7kNvwFMhpxN&amp;_nc_oc=Adq5lQL_4aI7eN9klK3bPyrqoTe1kFqgRfOfnr5OFD9izTZnt_T2fH_H6vDgTqCHcEA&amp;_nc_zt=23&amp;_nc_ht=scontent-dfw5-2.xx&amp;edm=AAT1rw8EAAAA&amp;_nc_gid=3PgBrmuuaRQQ4SnS_INjuA&amp;_nc_tpa=Q5bMBQE1y_D5iLXsZrAnr849Yv4qrSVUvTH6WozRp3N3HUtZiqdKC3NFK3Wa5pk49PaFm8mjnBwsvmt4&amp;stp=c0.5000x0.5000f_dst-emg0_p64x64_q75_tt6&amp;ur=5fad0e&amp;_nc_sid=58080a&amp;oh=00_Af7ZuwWaXXK0RtC-KwTIfYIFdeUf5TUKWEB33AUb_ZOJQQ&amp;oe=6A11C4D0" data-fb="https://www.facebook.com/317231758141291/posts/122192324348337712" data-campaign="CBO | Tiktok Rip Winners | Group 1" data-spend="21910.05" data-revenue="22723.78" data-roas="1.037" data-purchases="428" data-impressions="364038" data-clicks="27408" data-ctr="7.53" data-cpa="51.19">
+      <div class="ad-rank">#1</div>
+      <div class="ad-thumb"><img src="https://scontent-dfw5-2.xx.fbcdn.net/v/t15.5256-10/613669553_1549960262789457_9064644922313382264_n.jpg?_nc_cat=108&amp;ccb=1-7&amp;_nc_ohc=u5nC0Y7HQ1EQ7kNvwFMhpxN&amp;_nc_oc=Adq5lQL_4aI7eN9klK3bPyrqoTe1kFqgRfOfnr5OFD9izTZnt_T2fH_H6vDgTqCHcEA&amp;_nc_zt=23&amp;_nc_ht=scontent-dfw5-2.xx&amp;edm=AAT1rw8EAAAA&amp;_nc_gid=3PgBrmuuaRQQ4SnS_INjuA&amp;_nc_tpa=Q5bMBQE1y_D5iLXsZrAnr849Yv4qrSVUvTH6WozRp3N3HUtZiqdKC3NFK3Wa5pk49PaFm8mjnBwsvmt4&amp;stp=c0.5000x0.5000f_dst-emg0_p64x64_q75_tt6&amp;ur=5fad0e&amp;_nc_sid=58080a&amp;oh=00_Af7ZuwWaXXK0RtC-KwTIfYIFdeUf5TUKWEB33AUb_ZOJQQ&amp;oe=6A11C4D0" loading="lazy" alt="" /></div>
+      <div class="ad-meta">
+        <div class="ad-name" title="New Sales Ad">New Sales Ad</div>
+        <div class="ad-campaign" title="CBO | Tiktok Rip Winners | Group 1">CBO | Tiktok Rip Winners | Group 1</div>
+        <div class="ad-stats">
+          <div class="ad-roas ok">1.04x</div>
+          <div class="ad-secondary">
+            <span>$21,910.05 spend</span>
+            <span>428 purch</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+
+    <div class="ad-card" data-id="120240367445370479" data-name="New Sales Ad" data-title="" data-body="" data-thumb="https://scontent-dfw5-2.xx.fbcdn.net/v/t15.5256-10/613446264_728991116948137_3281262149408889471_n.jpg?_nc_cat=100&amp;ccb=1-7&amp;_nc_ohc=GlfiaqbngtgQ7kNvwE6zlwq&amp;_nc_oc=AdrAYRiHsc8MATFkKU-sm19PFcWlFSnhhAQmaKrLk9phdfSmTZO1ob8pAlFEtmOB0Y4&amp;_nc_zt=23&amp;_nc_ht=scontent-dfw5-2.xx&amp;edm=AAT1rw8EAAAA&amp;_nc_gid=waHKtDN8XTzVfQUOpApQng&amp;_nc_tpa=Q5bMBQFTHv1cZw7Ete7rNlBaDjPdzmgQgnug4UtIL3pMJuYNsUUQ9_dIfjF-SwmOeatj7c8KnxkmwFIu&amp;stp=c0.5000x0.5000f_dst-emg0_p64x64_q75_tt6&amp;ur=5fad0e&amp;_nc_sid=58080a&amp;oh=00_Af5gj8VcFYogTPv278uR3XoF6bMhB_xyTmHLN2_y5FVU4w&amp;oe=6A11CD89" data-fb="https://www.facebook.com/317231758141291/posts/122192305244337712" data-campaign="CBO | Tiktok Rip Winners | Group 1" data-spend="7538.54" data-revenue="8649.75" data-roas="1.147" data-purchases="139" data-impressions="126947" data-clicks="14489" data-ctr="11.41" data-cpa="54.23">
+      <div class="ad-rank">#2</div>
+      <div class="ad-thumb"><img src="https://scontent-dfw5-2.xx.fbcdn.net/v/t15.5256-10/613446264_728991116948137_3281262149408889471_n.jpg?_nc_cat=100&amp;ccb=1-7&amp;_nc_ohc=GlfiaqbngtgQ7kNvwE6zlwq&amp;_nc_oc=AdrAYRiHsc8MATFkKU-sm19PFcWlFSnhhAQmaKrLk9phdfSmTZO1ob8pAlFEtmOB0Y4&amp;_nc_zt=23&amp;_nc_ht=scontent-dfw5-2.xx&amp;edm=AAT1rw8EAAAA&amp;_nc_gid=waHKtDN8XTzVfQUOpApQng&amp;_nc_tpa=Q5bMBQFTHv1cZw7Ete7rNlBaDjPdzmgQgnug4UtIL3pMJuYNsUUQ9_dIfjF-SwmOeatj7c8KnxkmwFIu&amp;stp=c0.5000x0.5000f_dst-emg0_p64x64_q75_tt6&amp;ur=5fad0e&amp;_nc_sid=58080a&amp;oh=00_Af5gj8VcFYogTPv278uR3XoF6bMhB_xyTmHLN2_y5FVU4w&amp;oe=6A11CD89" loading="lazy" alt="" /></div>
+      <div class="ad-meta">
+        <div class="ad-name" title="New Sales Ad">New Sales Ad</div>
+        <div class="ad-campaign" title="CBO | Tiktok Rip Winners | Group 1">CBO | Tiktok Rip Winners | Group 1</div>
+        <div class="ad-stats">
+          <div class="ad-roas ok">1.15x</div>
+          <div class="ad-secondary">
+            <span>$7,538.54 spend</span>
+            <span>139 purch</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+
+    <div class="ad-card" data-id="120237365988740479" data-name="New Sales Ad - Copy" data-title="Peptides vs. Transplants" data-body="Thinning part. Receding line. $8k+ transplants on your mind. Then biohackers quietly start using GHK-Cu peptides… and their barbers notice first. See why this next-gen formula is turning “last resort” surgery into a backup plan, not the plan." data-thumb="https://scontent-dfw5-1.xx.fbcdn.net/v/t15.5256-10/579788366_756391560750340_580235568947239050_n.jpg?_nc_cat=105&amp;ccb=1-7&amp;_nc_ohc=uuqzLv5VyuwQ7kNvwHg8SYB&amp;_nc_oc=AdoAGy_Z5TgMdJGm0g9RvBRBZqa1fyAO99ZBHo0VMRWRSk7-v0pdRreQaFr97ZlT3B8&amp;_nc_zt=23&amp;_nc_ht=scontent-dfw5-1.xx&amp;edm=AAT1rw8EAAAA&amp;_nc_gid=aDTjfTQ91nLzLjTACMbnwQ&amp;_nc_tpa=Q5bMBQHP0eBCYAMmB90pX53O3IthrZD08KoPJ1j6HS47c3LFSg4DoBHv8YO5mg8rmE-ccn7wrs1qhi7v&amp;stp=c0.5000x0.5000f_dst-emg0_p64x64_q75_tt6&amp;ur=5fad0e&amp;_nc_sid=58080a&amp;oh=00_Af6zENJ4vo8XMTQYncds_d8-diA-jgI1KBYrF-F2OFluWw&amp;oe=6A127828" data-fb="https://www.facebook.com/317231758141291/posts/122186842904337712" data-campaign="Testing | CBO" data-spend="7517.94" data-revenue="9844.52" data-roas="1.309" data-purchases="152" data-impressions="87298" data-clicks="5455" data-ctr="6.25" data-cpa="49.46">
+      <div class="ad-rank">#3</div>
+      <div class="ad-thumb"><img src="https://scontent-dfw5-1.xx.fbcdn.net/v/t15.5256-10/579788366_756391560750340_580235568947239050_n.jpg?_nc_cat=105&amp;ccb=1-7&amp;_nc_ohc=uuqzLv5VyuwQ7kNvwHg8SYB&amp;_nc_oc=AdoAGy_Z5TgMdJGm0g9RvBRBZqa1fyAO99ZBHo0VMRWRSk7-v0pdRreQaFr97ZlT3B8&amp;_nc_zt=23&amp;_nc_ht=scontent-dfw5-1.xx&amp;edm=AAT1rw8EAAAA&amp;_nc_gid=aDTjfTQ91nLzLjTACMbnwQ&amp;_nc_tpa=Q5bMBQHP0eBCYAMmB90pX53O3IthrZD08KoPJ1j6HS47c3LFSg4DoBHv8YO5mg8rmE-ccn7wrs1qhi7v&amp;stp=c0.5000x0.5000f_dst-emg0_p64x64_q75_tt6&amp;ur=5fad0e&amp;_nc_sid=58080a&amp;oh=00_Af6zENJ4vo8XMTQYncds_d8-diA-jgI1KBYrF-F2OFluWw&amp;oe=6A127828" loading="lazy" alt="" /></div>
+      <div class="ad-meta">
+        <div class="ad-name" title="New Sales Ad - Copy">New Sales Ad - Copy</div>
+        <div class="ad-campaign" title="Testing | CBO">Testing | CBO</div>
+        <div class="ad-stats">
+          <div class="ad-roas ok">1.31x</div>
+          <div class="ad-secondary">
+            <span>$7,517.94 spend</span>
+            <span>152 purch</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+
+    <div class="ad-card" data-id="120241104667440479" data-name="New Sales Ad" data-title="" data-body="" data-thumb="https://scontent-dfw6-1.xx.fbcdn.net/v/t15.5256-10/608825019_1501470931151310_1933898519107696561_n.jpg?_nc_cat=103&amp;ccb=1-7&amp;_nc_ohc=Z-hqrQk43fIQ7kNvwEAd4qs&amp;_nc_oc=AdpiHV6AM2GzWCNbHFuqLA6msJo749j2CB63NP4D2QQDKouN2mFqWra3ChF1hxv0avI&amp;_nc_zt=23&amp;_nc_ht=scontent-dfw6-1.xx&amp;edm=AAT1rw8EAAAA&amp;_nc_gid=OPhAKv9N52XbFPfNDw6E0g&amp;_nc_tpa=Q5bMBQFcxlgxAwSlLI4x_QxP5GcVGwkhDgFp9VIaxeq8xN99CizvwsiDI7W7migDjBo6ghShvyXCWkHX&amp;stp=c0.5000x0.5000f_dst-emg0_p64x64_q75_tt6&amp;ur=5fad0e&amp;_nc_sid=58080a&amp;oh=00_Af5wWc0rZYjixI3jUQwbkFYbTxDFPMRoYb0hvqexWMA5KA&amp;oe=6A1263AC" data-fb="https://www.facebook.com/317231758141291/posts/122191052258337712" data-campaign="CBO | Tiktok Rip Winners | Group 1 | Duplicate" data-spend="6908.83" data-revenue="7524.45" data-roas="1.089" data-purchases="128" data-impressions="162699" data-clicks="9244" data-ctr="5.68" data-cpa="53.98">
+      <div class="ad-rank">#4</div>
+      <div class="ad-thumb"><img src="https://scontent-dfw6-1.xx.fbcdn.net/v/t15.5256-10/608825019_1501470931151310_1933898519107696561_n.jpg?_nc_cat=103&amp;ccb=1-7&amp;_nc_ohc=Z-hqrQk43fIQ7kNvwEAd4qs&amp;_nc_oc=AdpiHV6AM2GzWCNbHFuqLA6msJo749j2CB63NP4D2QQDKouN2mFqWra3ChF1hxv0avI&amp;_nc_zt=23&amp;_nc_ht=scontent-dfw6-1.xx&amp;edm=AAT1rw8EAAAA&amp;_nc_gid=OPhAKv9N52XbFPfNDw6E0g&amp;_nc_tpa=Q5bMBQFcxlgxAwSlLI4x_QxP5GcVGwkhDgFp9VIaxeq8xN99CizvwsiDI7W7migDjBo6ghShvyXCWkHX&amp;stp=c0.5000x0.5000f_dst-emg0_p64x64_q75_tt6&amp;ur=5fad0e&amp;_nc_sid=58080a&amp;oh=00_Af5wWc0rZYjixI3jUQwbkFYbTxDFPMRoYb0hvqexWMA5KA&amp;oe=6A1263AC" loading="lazy" alt="" /></div>
+      <div class="ad-meta">
+        <div class="ad-name" title="New Sales Ad">New Sales Ad</div>
+        <div class="ad-campaign" title="CBO | Tiktok Rip Winners | Group 1 | Duplicate">CBO | Tiktok Rip Winners | Group 1 | Duplicate</div>
+        <div class="ad-stats">
+          <div class="ad-roas ok">1.09x</div>
+          <div class="ad-secondary">
+            <span>$6,908.83 spend</span>
+            <span>128 purch</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+
+    <div class="ad-card" data-id="120241104340720479" data-name="GHK-Cu: No Side-Effects Topical Growth Serum | Home Page - Copy" data-title="GHK-Cu: No Side-Effects Topical Growth Serum" data-body="GHK-Cu is one of the most researched copper peptides in hair science-shown to support healthier follicles, stronger strands, and visible regrowth. This is peptide technology working at the scalp level, not a surface fix." data-thumb="https://scontent-dfw6-1.xx.fbcdn.net/v/t15.5256-10/629017472_753142044101929_7400866757674711330_n.jpg?_nc_cat=106&amp;ccb=1-7&amp;_nc_ohc=MlKxuHjJtWEQ7kNvwEhXGWK&amp;_nc_oc=AdrzRYZJF9P_rzE7m5sc9R2svS6K5CRgeKfVm2lr9h16fhGEuO07up1VscdTWdhSDcY&amp;_nc_zt=23&amp;_nc_ht=scontent-dfw6-1.xx&amp;edm=AAT1rw8EAAAA&amp;_nc_gid=0O1_Z5aqBS99Ly6JVUbjCg&amp;_nc_tpa=Q5bMBQHRpTf-R9AsJuodPBG_T4_RznCAUDene8hc_csXHNB2HKw-7EteaGcV9KOYsgiZn3JgFwbsSiJL&amp;stp=c0.5000x0.5000f_dst-emg0_p64x64_q75_tt6&amp;ur=b696e2&amp;_nc_sid=58080a&amp;oh=00_Af6bOzXujlB__Ff9ntxYyfa9pUN5QpODfKolckX4R0aGig&amp;oe=6A12563E" data-fb="https://www.facebook.com/317231758141291/posts/122196120260337712" data-campaign="CBO | Tiktok Rip Winners | Group 2" data-spend="5900.15" data-revenue="5644.60" data-roas="0.957" data-purchases="88" data-impressions="273465" data-clicks="9559" data-ctr="3.50" data-cpa="67.05">
+      <div class="ad-rank">#5</div>
+      <div class="ad-thumb"><img src="https://scontent-dfw6-1.xx.fbcdn.net/v/t15.5256-10/629017472_753142044101929_7400866757674711330_n.jpg?_nc_cat=106&amp;ccb=1-7&amp;_nc_ohc=MlKxuHjJtWEQ7kNvwEhXGWK&amp;_nc_oc=AdrzRYZJF9P_rzE7m5sc9R2svS6K5CRgeKfVm2lr9h16fhGEuO07up1VscdTWdhSDcY&amp;_nc_zt=23&amp;_nc_ht=scontent-dfw6-1.xx&amp;edm=AAT1rw8EAAAA&amp;_nc_gid=0O1_Z5aqBS99Ly6JVUbjCg&amp;_nc_tpa=Q5bMBQHRpTf-R9AsJuodPBG_T4_RznCAUDene8hc_csXHNB2HKw-7EteaGcV9KOYsgiZn3JgFwbsSiJL&amp;stp=c0.5000x0.5000f_dst-emg0_p64x64_q75_tt6&amp;ur=b696e2&amp;_nc_sid=58080a&amp;oh=00_Af6bOzXujlB__Ff9ntxYyfa9pUN5QpODfKolckX4R0aGig&amp;oe=6A12563E" loading="lazy" alt="" /><div class="ad-video-badge">▶ Video</div></div>
+      <div class="ad-meta">
+        <div class="ad-name" title="GHK-Cu: No Side-Effects Topical Growth Serum | Home Page - Copy">GHK-Cu: No Side-Effects Topical Growth Serum | Home Page - Copy</div>
+        <div class="ad-campaign" title="CBO | Tiktok Rip Winners | Group 2">CBO | Tiktok Rip Winners | Group 2</div>
+        <div class="ad-stats">
+          <div class="ad-roas warn">0.96x</div>
+          <div class="ad-secondary">
+            <span>$5,900.15 spend</span>
+            <span>88 purch</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+
+    <div class="ad-card" data-id="120232655163960479" data-name="The Warning Nobody Got | Static | Finasteride Hook | 6.22.25 - Copy 4" data-title="Why Women Quit Minoxidil Fast" data-body="A new formula is winning over both experts and everyday users. Here’s why it works." data-thumb="https://scontent-dfw5-1.xx.fbcdn.net/v/t45.1600-4/532392701_10228936255499815_6337414147301745489_n.png?_nc_cat=109&amp;ccb=1-7&amp;_nc_ohc=MJocSkIHMHQQ7kNvwEmTtgU&amp;_nc_oc=AdrTmyollQXsfew6XL_WbusDrYt1aVjxeHV7r2AWpbT2ya65LBNYPDjv6JgmBj8h2A4&amp;_nc_zt=1&amp;_nc_ht=scontent-dfw5-1.xx&amp;edm=AAT1rw8EAAAA&amp;_nc_gid=GHasH-T8FUWhoH33kUPMYQ&amp;_nc_tpa=Q5bMBQHlHIKLMDLaMMu0D4tm3tGnO6GRyIog3G6-plMm4bUq_S8gK7AccMq9OJn130XH9H-txt-Qrhy6&amp;stp=c0.5000x0.5000f_dst-emg0_p64x64_q75_tt6&amp;ur=52f3c4&amp;_nc_sid=58080a&amp;oh=00_Af4jrGNqlODXfHv0e9unyKj3v0gj0gP9L1EXaMg2g1LcKA&amp;oe=6A12725D" data-fb="https://www.facebook.com/317231758141291/posts/122190226220337712" data-campaign="ASC | Prospecting | Winners" data-spend="5633.47" data-revenue="7823.45" data-roas="1.389" data-purchases="92" data-impressions="59278" data-clicks="6201" data-ctr="10.46" data-cpa="61.23">
+      <div class="ad-rank">#6</div>
+      <div class="ad-thumb"><img src="https://scontent-dfw5-1.xx.fbcdn.net/v/t45.1600-4/532392701_10228936255499815_6337414147301745489_n.png?_nc_cat=109&amp;ccb=1-7&amp;_nc_ohc=MJocSkIHMHQQ7kNvwEmTtgU&amp;_nc_oc=AdrTmyollQXsfew6XL_WbusDrYt1aVjxeHV7r2AWpbT2ya65LBNYPDjv6JgmBj8h2A4&amp;_nc_zt=1&amp;_nc_ht=scontent-dfw5-1.xx&amp;edm=AAT1rw8EAAAA&amp;_nc_gid=GHasH-T8FUWhoH33kUPMYQ&amp;_nc_tpa=Q5bMBQHlHIKLMDLaMMu0D4tm3tGnO6GRyIog3G6-plMm4bUq_S8gK7AccMq9OJn130XH9H-txt-Qrhy6&amp;stp=c0.5000x0.5000f_dst-emg0_p64x64_q75_tt6&amp;ur=52f3c4&amp;_nc_sid=58080a&amp;oh=00_Af4jrGNqlODXfHv0e9unyKj3v0gj0gP9L1EXaMg2g1LcKA&amp;oe=6A12725D" loading="lazy" alt="" /></div>
+      <div class="ad-meta">
+        <div class="ad-name" title="The Warning Nobody Got | Static | Finasteride Hook | 6.22.25 - Copy 4">The Warning Nobody Got | Static | Finasteride Hook | 6.22.25 - Copy 4</div>
+        <div class="ad-campaign" title="ASC | Prospecting | Winners">ASC | Prospecting | Winners</div>
+        <div class="ad-stats">
+          <div class="ad-roas ok">1.39x</div>
+          <div class="ad-secondary">
+            <span>$5,633.47 spend</span>
+            <span>92 purch</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+
+    <div class="ad-card" data-id="120241104667310479" data-name="New Sales Ad" data-title="" data-body="" data-thumb="https://scontent-dfw5-2.xx.fbcdn.net/v/t15.5256-10/578984240_1616854823027991_4571993513343161324_n.jpg?_nc_cat=100&amp;ccb=1-7&amp;_nc_ohc=FV1nQNvdWrIQ7kNvwFwkAPB&amp;_nc_oc=AdpXEOvN-Qa7VFKYtHgLrh48BWLjtfh4DdOHPwFuRe7NMn1O5SOF_TZP_-AgIPvqgBQ&amp;_nc_zt=23&amp;_nc_ht=scontent-dfw5-2.xx&amp;edm=AAT1rw8EAAAA&amp;_nc_gid=YGWVc-teO8ja_SSkzf4roA&amp;_nc_tpa=Q5bMBQHdZi-QYeXcAPwSxjqw5sWjBBK9jKdALdSPFDFxyQQgUxfhh6VAzMHFEEzzzlU3cbWiakxjGSrx&amp;stp=c0.5000x0.5000f_dst-emg0_p64x64_q75_tt6&amp;ur=5fad0e&amp;_nc_sid=58080a&amp;oh=00_Af4tY5PYnH1kQIF6SWMguEVgP29DkX5QEQA_O0xdbgj87g&amp;oe=6A126C9A" data-fb="https://www.facebook.com/317231758141291/posts/122185466864337712" data-campaign="CBO | Tiktok Rip Winners | Group 1 | Duplicate" data-spend="5096.05" data-revenue="4394.65" data-roas="0.862" data-purchases="83" data-impressions="91438" data-clicks="3400" data-ctr="3.72" data-cpa="61.40">
+      <div class="ad-rank">#7</div>
+      <div class="ad-thumb"><img src="https://scontent-dfw5-2.xx.fbcdn.net/v/t15.5256-10/578984240_1616854823027991_4571993513343161324_n.jpg?_nc_cat=100&amp;ccb=1-7&amp;_nc_ohc=FV1nQNvdWrIQ7kNvwFwkAPB&amp;_nc_oc=AdpXEOvN-Qa7VFKYtHgLrh48BWLjtfh4DdOHPwFuRe7NMn1O5SOF_TZP_-AgIPvqgBQ&amp;_nc_zt=23&amp;_nc_ht=scontent-dfw5-2.xx&amp;edm=AAT1rw8EAAAA&amp;_nc_gid=YGWVc-teO8ja_SSkzf4roA&amp;_nc_tpa=Q5bMBQHdZi-QYeXcAPwSxjqw5sWjBBK9jKdALdSPFDFxyQQgUxfhh6VAzMHFEEzzzlU3cbWiakxjGSrx&amp;stp=c0.5000x0.5000f_dst-emg0_p64x64_q75_tt6&amp;ur=5fad0e&amp;_nc_sid=58080a&amp;oh=00_Af4tY5PYnH1kQIF6SWMguEVgP29DkX5QEQA_O0xdbgj87g&amp;oe=6A126C9A" loading="lazy" alt="" /></div>
+      <div class="ad-meta">
+        <div class="ad-name" title="New Sales Ad">New Sales Ad</div>
+        <div class="ad-campaign" title="CBO | Tiktok Rip Winners | Group 1 | Duplicate">CBO | Tiktok Rip Winners | Group 1 | Duplicate</div>
+        <div class="ad-stats">
+          <div class="ad-roas warn">0.86x</div>
+          <div class="ad-secondary">
+            <span>$5,096.05 spend</span>
+            <span>83 purch</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+
+    <div class="ad-card" data-id="120241872546690479" data-name="AHK-Cu: Zero-Risk Hair Growth | Home Page - Copy" data-title="AHK-Cu: Zero-Risk Hair Growth" data-body="Introducing the ultimate duo for thicker, healthier hair!
+
+• GHK-Cu: supports follicle health &amp; strand strength
+• AHK-Cu: helps reduce thinning factors &amp; promotes a healthy hair cycle
+
+Together, they create a synergistic effect that&#x27;s more powerful than alone. Say goodbye to harsh chemicals and hello to visibly fuller locks!" data-thumb="https://scontent-dfw5-2.xx.fbcdn.net/v/t15.5256-10/628882851_1494186478985847_1558908896570640981_n.jpg?_nc_cat=100&amp;ccb=1-7&amp;_nc_ohc=6PPDzj945f4Q7kNvwGzT0S_&amp;_nc_oc=AdoUd9El7BeLmNeicF-9W7UID1hEwE9pnT3gT8upGzQrK-eESCgu_gSYVPXoBM10vr8&amp;_nc_zt=23&amp;_nc_ht=scontent-dfw5-2.xx&amp;edm=AAT1rw8EAAAA&amp;_nc_gid=QhEyEmbfSnFB_BzrxROi9Q&amp;_nc_tpa=Q5bMBQGUDaWnRFBoDBpLm7gDgerL6da0DDge2scfRGF5rP707O736pEoINcFTj95ZVaeejin0dj8xu8X&amp;stp=c0.5000x0.5000f_dst-emg0_p64x64_q75_tt6&amp;ur=b696e2&amp;_nc_sid=58080a&amp;oh=00_Af62kT7l9FwjhaXvVtbLUCpOqfTE6hIiN_zS4jO6jdgcsw&amp;oe=6A11D041" data-fb="https://www.facebook.com/317231758141291/posts/122198030732337712" data-campaign="CBO | Tiktok Rip Winners | Group 3" data-spend="4648.14" data-revenue="4929.50" data-roas="1.061" data-purchases="74" data-impressions="78349" data-clicks="4442" data-ctr="5.67" data-cpa="62.81">
+      <div class="ad-rank">#8</div>
+      <div class="ad-thumb"><img src="https://scontent-dfw5-2.xx.fbcdn.net/v/t15.5256-10/628882851_1494186478985847_1558908896570640981_n.jpg?_nc_cat=100&amp;ccb=1-7&amp;_nc_ohc=6PPDzj945f4Q7kNvwGzT0S_&amp;_nc_oc=AdoUd9El7BeLmNeicF-9W7UID1hEwE9pnT3gT8upGzQrK-eESCgu_gSYVPXoBM10vr8&amp;_nc_zt=23&amp;_nc_ht=scontent-dfw5-2.xx&amp;edm=AAT1rw8EAAAA&amp;_nc_gid=QhEyEmbfSnFB_BzrxROi9Q&amp;_nc_tpa=Q5bMBQGUDaWnRFBoDBpLm7gDgerL6da0DDge2scfRGF5rP707O736pEoINcFTj95ZVaeejin0dj8xu8X&amp;stp=c0.5000x0.5000f_dst-emg0_p64x64_q75_tt6&amp;ur=b696e2&amp;_nc_sid=58080a&amp;oh=00_Af62kT7l9FwjhaXvVtbLUCpOqfTE6hIiN_zS4jO6jdgcsw&amp;oe=6A11D041" loading="lazy" alt="" /><div class="ad-video-badge">▶ Video</div></div>
+      <div class="ad-meta">
+        <div class="ad-name" title="AHK-Cu: Zero-Risk Hair Growth | Home Page - Copy">AHK-Cu: Zero-Risk Hair Growth | Home Page - Copy</div>
+        <div class="ad-campaign" title="CBO | Tiktok Rip Winners | Group 3">CBO | Tiktok Rip Winners | Group 3</div>
+        <div class="ad-stats">
+          <div class="ad-roas ok">1.06x</div>
+          <div class="ad-secondary">
+            <span>$4,648.14 spend</span>
+            <span>74 purch</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+
+    <div class="ad-card" data-id="120240367488080479" data-name="New Sales Ad" data-title="" data-body="" data-thumb="https://scontent-dfw5-2.xx.fbcdn.net/v/t15.5256-10/578984240_1616854823027991_4571993513343161324_n.jpg?_nc_cat=100&amp;ccb=1-7&amp;_nc_ohc=FV1nQNvdWrIQ7kNvwFwkAPB&amp;_nc_oc=AdpXEOvN-Qa7VFKYtHgLrh48BWLjtfh4DdOHPwFuRe7NMn1O5SOF_TZP_-AgIPvqgBQ&amp;_nc_zt=23&amp;_nc_ht=scontent-dfw5-2.xx&amp;edm=AAT1rw8EAAAA&amp;_nc_gid=oGFclI8jiDUmXklOgbdmjA&amp;_nc_tpa=Q5bMBQHdcpvLJHFxtD55de84H2lTqR6fB-h207SECWCzIAtDZThVaNH1YL8BtuUXeEv2-w5Guy4SmtDV&amp;stp=c0.5000x0.5000f_dst-emg0_p64x64_q75_tt6&amp;ur=5fad0e&amp;_nc_sid=58080a&amp;oh=00_Af4BbjFw-j3F4rCHfXdItPyLFxEob6D14v_ujgQNXUOVmA&amp;oe=6A11C3DA" data-fb="https://www.facebook.com/317231758141291/posts/122185466864337712" data-campaign="CBO | Tiktok Rip Winners | Group 1" data-spend="4514.15" data-revenue="6368.45" data-roas="1.411" data-purchases="109" data-impressions="78998" data-clicks="3788" data-ctr="4.80" data-cpa="41.41">
+      <div class="ad-rank">#9</div>
+      <div class="ad-thumb"><img src="https://scontent-dfw5-2.xx.fbcdn.net/v/t15.5256-10/578984240_1616854823027991_4571993513343161324_n.jpg?_nc_cat=100&amp;ccb=1-7&amp;_nc_ohc=FV1nQNvdWrIQ7kNvwFwkAPB&amp;_nc_oc=AdpXEOvN-Qa7VFKYtHgLrh48BWLjtfh4DdOHPwFuRe7NMn1O5SOF_TZP_-AgIPvqgBQ&amp;_nc_zt=23&amp;_nc_ht=scontent-dfw5-2.xx&amp;edm=AAT1rw8EAAAA&amp;_nc_gid=oGFclI8jiDUmXklOgbdmjA&amp;_nc_tpa=Q5bMBQHdcpvLJHFxtD55de84H2lTqR6fB-h207SECWCzIAtDZThVaNH1YL8BtuUXeEv2-w5Guy4SmtDV&amp;stp=c0.5000x0.5000f_dst-emg0_p64x64_q75_tt6&amp;ur=5fad0e&amp;_nc_sid=58080a&amp;oh=00_Af4BbjFw-j3F4rCHfXdItPyLFxEob6D14v_ujgQNXUOVmA&amp;oe=6A11C3DA" loading="lazy" alt="" /></div>
+      <div class="ad-meta">
+        <div class="ad-name" title="New Sales Ad">New Sales Ad</div>
+        <div class="ad-campaign" title="CBO | Tiktok Rip Winners | Group 1">CBO | Tiktok Rip Winners | Group 1</div>
+        <div class="ad-stats">
+          <div class="ad-roas ok">1.41x</div>
+          <div class="ad-secondary">
+            <span>$4,514.15 spend</span>
+            <span>109 purch</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+
+    <div class="ad-card" data-id="120241873263020479" data-name="GHK-Cu: Zero-Risk Hair Growth | Home Page - Copy" data-title="GHK-Cu: Zero-Risk Hair Growth" data-body="GHK-Cu is one of the most researched copper peptides in hair science-shown to support healthier follicles, stronger strands, and visible regrowth. This is peptide technology working at the scalp level, not a surface fix." data-thumb="https://scontent-dfw6-1.xx.fbcdn.net/v/t15.5256-10/636980997_1887502998554796_8666266753254358604_n.jpg?_nc_cat=106&amp;ccb=1-7&amp;_nc_ohc=c7ciwAQMY1cQ7kNvwGa0Hw8&amp;_nc_oc=AdoHJLnmCLxNQVbLLM_USNf7tsFEEYSjH8XwGAwgEb7pcGCz6ZGt55t2rfTfaoCl9JQ&amp;_nc_zt=23&amp;_nc_ht=scontent-dfw6-1.xx&amp;edm=AAT1rw8EAAAA&amp;_nc_gid=VZI3_OB8tLt7kzs-V4Cl9g&amp;_nc_tpa=Q5bMBQGxtvvYT2ylSFptSo2vx1OA_wTVDrSUq3jjuXC-XS_CcaByY5QtdQstZE6PGy_Y-ME7InRO71g5&amp;stp=c0.5000x0.5000f_dst-emg0_p64x64_q75_tt6&amp;ur=b696e2&amp;_nc_sid=58080a&amp;oh=00_Af4f1Fn2gIGsCCQdSRbfrsUnMISV2LzJbDTPOhU2Jg9eZg&amp;oe=6A11DE73" data-fb="https://www.facebook.com/317231758141291/posts/122198041652337712" data-campaign="CBO | Tiktok Rip Winners | Group 3" data-spend="4204.32" data-revenue="3993.45" data-roas="0.950" data-purchases="59" data-impressions="65786" data-clicks="6904" data-ctr="10.49" data-cpa="71.26">
+      <div class="ad-rank">#10</div>
+      <div class="ad-thumb"><img src="https://scontent-dfw6-1.xx.fbcdn.net/v/t15.5256-10/636980997_1887502998554796_8666266753254358604_n.jpg?_nc_cat=106&amp;ccb=1-7&amp;_nc_ohc=c7ciwAQMY1cQ7kNvwGa0Hw8&amp;_nc_oc=AdoHJLnmCLxNQVbLLM_USNf7tsFEEYSjH8XwGAwgEb7pcGCz6ZGt55t2rfTfaoCl9JQ&amp;_nc_zt=23&amp;_nc_ht=scontent-dfw6-1.xx&amp;edm=AAT1rw8EAAAA&amp;_nc_gid=VZI3_OB8tLt7kzs-V4Cl9g&amp;_nc_tpa=Q5bMBQGxtvvYT2ylSFptSo2vx1OA_wTVDrSUq3jjuXC-XS_CcaByY5QtdQstZE6PGy_Y-ME7InRO71g5&amp;stp=c0.5000x0.5000f_dst-emg0_p64x64_q75_tt6&amp;ur=b696e2&amp;_nc_sid=58080a&amp;oh=00_Af4f1Fn2gIGsCCQdSRbfrsUnMISV2LzJbDTPOhU2Jg9eZg&amp;oe=6A11DE73" loading="lazy" alt="" /><div class="ad-video-badge">▶ Video</div></div>
+      <div class="ad-meta">
+        <div class="ad-name" title="GHK-Cu: Zero-Risk Hair Growth | Home Page - Copy">GHK-Cu: Zero-Risk Hair Growth | Home Page - Copy</div>
+        <div class="ad-campaign" title="CBO | Tiktok Rip Winners | Group 3">CBO | Tiktok Rip Winners | Group 3</div>
+        <div class="ad-stats">
+          <div class="ad-roas warn">0.95x</div>
+          <div class="ad-secondary">
+            <span>$4,204.32 spend</span>
+            <span>59 purch</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+
+    <div class="ad-card" data-id="120240367414150479" data-name="New Sales Ad" data-title="" data-body="" data-thumb="https://scontent-dfw6-1.xx.fbcdn.net/v/t15.5256-10/608825019_1501470931151310_1933898519107696561_n.jpg?_nc_cat=103&amp;ccb=1-7&amp;_nc_ohc=Z-hqrQk43fIQ7kNvwEAd4qs&amp;_nc_oc=AdpiHV6AM2GzWCNbHFuqLA6msJo749j2CB63NP4D2QQDKouN2mFqWra3ChF1hxv0avI&amp;_nc_zt=23&amp;_nc_ht=scontent-dfw6-1.xx&amp;edm=AAT1rw8EAAAA&amp;_nc_gid=HD2CIQYbPx1KbDLXfa90Bg&amp;_nc_tpa=Q5bMBQFh8VK47b4hfphVvqWWEXKkf1BTBRRwJyhu1xji0txp2HwS9arF8Op9c1m5CG_Yce1eW0--tQ2b&amp;stp=c0.5000x0.5000f_dst-emg0_p64x64_q75_tt6&amp;ur=5fad0e&amp;_nc_sid=58080a&amp;oh=00_Af4m-OSzFMEZ9lux3fdT4j6IQ8xF-eNn6i7zhmAjFjxZdQ&amp;oe=6A1263AC" data-fb="https://www.facebook.com/317231758141291/posts/122191052258337712" data-campaign="CBO | Tiktok Rip Winners | Group 1" data-spend="3425.03" data-revenue="4905.54" data-roas="1.432" data-purchases="78" data-impressions="83708" data-clicks="5086" data-ctr="6.08" data-cpa="43.91">
+      <div class="ad-rank">#11</div>
+      <div class="ad-thumb"><img src="https://scontent-dfw6-1.xx.fbcdn.net/v/t15.5256-10/608825019_1501470931151310_1933898519107696561_n.jpg?_nc_cat=103&amp;ccb=1-7&amp;_nc_ohc=Z-hqrQk43fIQ7kNvwEAd4qs&amp;_nc_oc=AdpiHV6AM2GzWCNbHFuqLA6msJo749j2CB63NP4D2QQDKouN2mFqWra3ChF1hxv0avI&amp;_nc_zt=23&amp;_nc_ht=scontent-dfw6-1.xx&amp;edm=AAT1rw8EAAAA&amp;_nc_gid=HD2CIQYbPx1KbDLXfa90Bg&amp;_nc_tpa=Q5bMBQFh8VK47b4hfphVvqWWEXKkf1BTBRRwJyhu1xji0txp2HwS9arF8Op9c1m5CG_Yce1eW0--tQ2b&amp;stp=c0.5000x0.5000f_dst-emg0_p64x64_q75_tt6&amp;ur=5fad0e&amp;_nc_sid=58080a&amp;oh=00_Af4m-OSzFMEZ9lux3fdT4j6IQ8xF-eNn6i7zhmAjFjxZdQ&amp;oe=6A1263AC" loading="lazy" alt="" /></div>
+      <div class="ad-meta">
+        <div class="ad-name" title="New Sales Ad">New Sales Ad</div>
+        <div class="ad-campaign" title="CBO | Tiktok Rip Winners | Group 1">CBO | Tiktok Rip Winners | Group 1</div>
+        <div class="ad-stats">
+          <div class="ad-roas ok">1.43x</div>
+          <div class="ad-secondary">
+            <span>$3,425.03 spend</span>
+            <span>78 purch</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+
+    <div class="ad-card" data-id="120241104340700479" data-name="GHK-Cu: Trichologist Recommended Hair Restoration | Home Page - Copy" data-title="GHK-Cu: Trichologist Recommended Hair Restoration" data-body="GHK-Cu is one of the most researched copper peptides in hair science-shown to support healthier follicles, stronger strands, and visible regrowth. This is peptide technology working at the scalp level, not a surface fix." data-thumb="https://scontent-dfw6-1.xx.fbcdn.net/v/t15.5256-10/629017472_753142044101929_7400866757674711330_n.jpg?_nc_cat=106&amp;ccb=1-7&amp;_nc_ohc=MlKxuHjJtWEQ7kNvwEhXGWK&amp;_nc_oc=AdrzRYZJF9P_rzE7m5sc9R2svS6K5CRgeKfVm2lr9h16fhGEuO07up1VscdTWdhSDcY&amp;_nc_zt=23&amp;_nc_ht=scontent-dfw6-1.xx&amp;edm=AAT1rw8EAAAA&amp;_nc_gid=WDy1WDHEkh0OgPGjC873Gg&amp;_nc_tpa=Q5bMBQGmvva4fX8xGFTT2ewR3_aVK_2cmTqvrljIU2LZ_ndV1AnV-bmVz-bzX86Wzg22w8b849R29r24&amp;stp=c0.5000x0.5000f_dst-emg0_p64x64_q75_tt6&amp;ur=b696e2&amp;_nc_sid=58080a&amp;oh=00_Af7s-0PNfyozr3zM7iX-zqSv0yGDoI9RrAJhRyllBbil3Q&amp;oe=6A12563E" data-fb="https://www.facebook.com/317231758141291/posts/122196120224337712" data-campaign="CBO | Tiktok Rip Winners | Group 2" data-spend="3215.19" data-revenue="3086.55" data-roas="0.960" data-purchases="51" data-impressions="115455" data-clicks="5230" data-ctr="4.53" data-cpa="63.04">
+      <div class="ad-rank">#12</div>
+      <div class="ad-thumb"><img src="https://scontent-dfw6-1.xx.fbcdn.net/v/t15.5256-10/629017472_753142044101929_7400866757674711330_n.jpg?_nc_cat=106&amp;ccb=1-7&amp;_nc_ohc=MlKxuHjJtWEQ7kNvwEhXGWK&amp;_nc_oc=AdrzRYZJF9P_rzE7m5sc9R2svS6K5CRgeKfVm2lr9h16fhGEuO07up1VscdTWdhSDcY&amp;_nc_zt=23&amp;_nc_ht=scontent-dfw6-1.xx&amp;edm=AAT1rw8EAAAA&amp;_nc_gid=WDy1WDHEkh0OgPGjC873Gg&amp;_nc_tpa=Q5bMBQGmvva4fX8xGFTT2ewR3_aVK_2cmTqvrljIU2LZ_ndV1AnV-bmVz-bzX86Wzg22w8b849R29r24&amp;stp=c0.5000x0.5000f_dst-emg0_p64x64_q75_tt6&amp;ur=b696e2&amp;_nc_sid=58080a&amp;oh=00_Af7s-0PNfyozr3zM7iX-zqSv0yGDoI9RrAJhRyllBbil3Q&amp;oe=6A12563E" loading="lazy" alt="" /><div class="ad-video-badge">▶ Video</div></div>
+      <div class="ad-meta">
+        <div class="ad-name" title="GHK-Cu: Trichologist Recommended Hair Restoration | Home Page - Copy">GHK-Cu: Trichologist Recommended Hair Restoration | Home Page - Copy</div>
+        <div class="ad-campaign" title="CBO | Tiktok Rip Winners | Group 2">CBO | Tiktok Rip Winners | Group 2</div>
+        <div class="ad-stats">
+          <div class="ad-roas warn">0.96x</div>
+          <div class="ad-secondary">
+            <span>$3,215.19 spend</span>
+            <span>51 purch</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+
+    <div class="ad-card" data-id="120241872576330479" data-name="GHK-Cu: Doctor Recommended Hair Regrowth Serum | Home Page - Copy" data-title="GHK-Cu: Doctor Recommended Hair Regrowth Serum" data-body="GHK-Cu is one of the most researched copper peptides in hair science-shown to support healthier follicles, stronger strands, and visible regrowth. This is peptide technology working at the scalp level, not a surface fix." data-thumb="https://scontent-dfw6-1.xx.fbcdn.net/v/t15.5256-10/643562613_1225635433048876_1190213999756635685_n.jpg?_nc_cat=106&amp;ccb=1-7&amp;_nc_ohc=7AC_qGJHUzAQ7kNvwGaXxGB&amp;_nc_oc=AdqS9RdTsKEY1ZTAaVPL78Jelt3licj8oPGBJUDamIMFKBYpfINQ_yJ3Cbx5raeux6Y&amp;_nc_zt=23&amp;_nc_ht=scontent-dfw6-1.xx&amp;edm=AAT1rw8EAAAA&amp;_nc_gid=x1KcEoLrMkNTtngptLzVQw&amp;_nc_tpa=Q5bMBQFc1RiHJ-ahhWe9qToyC3Ydpfr64LQQW_7xWHbBX58vxXWJsjiie5b8Z8dz4lTCRz6MiVjeFpC_&amp;stp=c0.5000x0.5000f_dst-emg0_p64x64_q75_tt6&amp;ur=b696e2&amp;_nc_sid=58080a&amp;oh=00_Af4OZSTggCtSF_P9ltQdLxnaELhvG5NzLFND839a9kA0yg&amp;oe=6A11D88D" data-fb="https://www.facebook.com/317231758141291/posts/122198032706337712" data-campaign="CBO | Tiktok Rip Winners | Group 3" data-spend="3083.72" data-revenue="3392.85" data-roas="1.100" data-purchases="59" data-impressions="80649" data-clicks="1614" data-ctr="2.00" data-cpa="52.27">
+      <div class="ad-rank">#13</div>
+      <div class="ad-thumb"><img src="https://scontent-dfw6-1.xx.fbcdn.net/v/t15.5256-10/643562613_1225635433048876_1190213999756635685_n.jpg?_nc_cat=106&amp;ccb=1-7&amp;_nc_ohc=7AC_qGJHUzAQ7kNvwGaXxGB&amp;_nc_oc=AdqS9RdTsKEY1ZTAaVPL78Jelt3licj8oPGBJUDamIMFKBYpfINQ_yJ3Cbx5raeux6Y&amp;_nc_zt=23&amp;_nc_ht=scontent-dfw6-1.xx&amp;edm=AAT1rw8EAAAA&amp;_nc_gid=x1KcEoLrMkNTtngptLzVQw&amp;_nc_tpa=Q5bMBQFc1RiHJ-ahhWe9qToyC3Ydpfr64LQQW_7xWHbBX58vxXWJsjiie5b8Z8dz4lTCRz6MiVjeFpC_&amp;stp=c0.5000x0.5000f_dst-emg0_p64x64_q75_tt6&amp;ur=b696e2&amp;_nc_sid=58080a&amp;oh=00_Af4OZSTggCtSF_P9ltQdLxnaELhvG5NzLFND839a9kA0yg&amp;oe=6A11D88D" loading="lazy" alt="" /><div class="ad-video-badge">▶ Video</div></div>
+      <div class="ad-meta">
+        <div class="ad-name" title="GHK-Cu: Doctor Recommended Hair Regrowth Serum | Home Page - Copy">GHK-Cu: Doctor Recommended Hair Regrowth Serum | Home Page - Copy</div>
+        <div class="ad-campaign" title="CBO | Tiktok Rip Winners | Group 3">CBO | Tiktok Rip Winners | Group 3</div>
+        <div class="ad-stats">
+          <div class="ad-roas ok">1.10x</div>
+          <div class="ad-secondary">
+            <span>$3,083.72 spend</span>
+            <span>59 purch</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+
+    <div class="ad-card" data-id="120232798708160479" data-name="Stronger Hair at the Root - Copy" data-title="" data-body="" data-thumb="https://scontent-dfw5-1.xx.fbcdn.net/v/t15.5256-10/538975283_1396041081469630_6054410759464592094_n.jpg?_nc_cat=109&amp;ccb=1-7&amp;_nc_ohc=SqYyZdpKezAQ7kNvwFT_CZk&amp;_nc_oc=AdrunODxtEOnU0d2zbBKAV00FX2uME44pOgZW1ID35oxaqpjHkRV72k8Ro_fQ1MJk9I&amp;_nc_zt=23&amp;_nc_ht=scontent-dfw5-1.xx&amp;edm=AAT1rw8EAAAA&amp;_nc_gid=pjg2oerSyfpOclNeYPuWOQ&amp;_nc_tpa=Q5bMBQFCNVayi5E56BbrWId6RiMunr5kuCtCX2g0wMJvOUJ7zf2_1EyruMMjzHsMu7RLrhPDPHvxtJqg&amp;stp=c0.5000x0.5000f_dst-emg0_p64x64_q75_tt6&amp;ur=5fad0e&amp;_nc_sid=58080a&amp;oh=00_Af79lQgigq6R8h4cmyiPhjZBriArrsMtNqIoRjidj6FILQ&amp;oe=6A12542A" data-fb="https://www.facebook.com/317231758141291/posts/122190579314337712" data-campaign="ASC | Prospecting | Winners" data-spend="2631.08" data-revenue="2672.00" data-roas="1.016" data-purchases="36" data-impressions="21841" data-clicks="1248" data-ctr="5.71" data-cpa="73.09">
+      <div class="ad-rank">#14</div>
+      <div class="ad-thumb"><img src="https://scontent-dfw5-1.xx.fbcdn.net/v/t15.5256-10/538975283_1396041081469630_6054410759464592094_n.jpg?_nc_cat=109&amp;ccb=1-7&amp;_nc_ohc=SqYyZdpKezAQ7kNvwFT_CZk&amp;_nc_oc=AdrunODxtEOnU0d2zbBKAV00FX2uME44pOgZW1ID35oxaqpjHkRV72k8Ro_fQ1MJk9I&amp;_nc_zt=23&amp;_nc_ht=scontent-dfw5-1.xx&amp;edm=AAT1rw8EAAAA&amp;_nc_gid=pjg2oerSyfpOclNeYPuWOQ&amp;_nc_tpa=Q5bMBQFCNVayi5E56BbrWId6RiMunr5kuCtCX2g0wMJvOUJ7zf2_1EyruMMjzHsMu7RLrhPDPHvxtJqg&amp;stp=c0.5000x0.5000f_dst-emg0_p64x64_q75_tt6&amp;ur=5fad0e&amp;_nc_sid=58080a&amp;oh=00_Af79lQgigq6R8h4cmyiPhjZBriArrsMtNqIoRjidj6FILQ&amp;oe=6A12542A" loading="lazy" alt="" /></div>
+      <div class="ad-meta">
+        <div class="ad-name" title="Stronger Hair at the Root - Copy">Stronger Hair at the Root - Copy</div>
+        <div class="ad-campaign" title="ASC | Prospecting | Winners">ASC | Prospecting | Winners</div>
+        <div class="ad-stats">
+          <div class="ad-roas ok">1.02x</div>
+          <div class="ad-secondary">
+            <span>$2,631.08 spend</span>
+            <span>36 purch</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+
+    <div class="ad-card" data-id="120232655164050479" data-name="Shah | Minoxidil + Transplant | Peptides Beat Rosemary Every Time - Copy" data-title="" data-body="" data-thumb="https://scontent-dfw5-2.xx.fbcdn.net/v/t15.13418-10/537734953_1535255030778777_8140716096346588947_n.jpg?_nc_cat=104&amp;ccb=1-7&amp;_nc_ohc=3Fpb_GQpHyEQ7kNvwELy7vv&amp;_nc_oc=AdoOLvTglU92woO-LaMCU3GUMHpwrtdTIYLrRXnV9X46m4VkkgRYGFFnEhvk4AJ7s78&amp;_nc_zt=23&amp;_nc_ht=scontent-dfw5-2.xx&amp;edm=AAT1rw8EAAAA&amp;_nc_gid=r4lmzLkCG8ObSN0pr3Cc3A&amp;_nc_tpa=Q5bMBQGBHOIEGpkC76Oc8Ff537eqmB7aBUtcnVNN1RX03XLnYIZJhKN2peYVsbAKUtHc2VaHtp9El7XH&amp;stp=c0.5000x0.5000f_dst-emg0_p64x64_q75_tt6&amp;ur=aaa768&amp;_nc_sid=58080a&amp;oh=00_Af4qTfwO8OiPn8kirgyfAi8f8lShbKfE0c-JtPoew33d3Q&amp;oe=6A1252B3" data-fb="https://www.facebook.com/317231758141291/posts/122190574478337712" data-campaign="ASC | Prospecting | Winners" data-spend="2604.38" data-revenue="2234.65" data-roas="0.858" data-purchases="76" data-impressions="25096" data-clicks="1100" data-ctr="4.38" data-cpa="34.27">
+      <div class="ad-rank">#15</div>
+      <div class="ad-thumb"><img src="https://scontent-dfw5-2.xx.fbcdn.net/v/t15.13418-10/537734953_1535255030778777_8140716096346588947_n.jpg?_nc_cat=104&amp;ccb=1-7&amp;_nc_ohc=3Fpb_GQpHyEQ7kNvwELy7vv&amp;_nc_oc=AdoOLvTglU92woO-LaMCU3GUMHpwrtdTIYLrRXnV9X46m4VkkgRYGFFnEhvk4AJ7s78&amp;_nc_zt=23&amp;_nc_ht=scontent-dfw5-2.xx&amp;edm=AAT1rw8EAAAA&amp;_nc_gid=r4lmzLkCG8ObSN0pr3Cc3A&amp;_nc_tpa=Q5bMBQGBHOIEGpkC76Oc8Ff537eqmB7aBUtcnVNN1RX03XLnYIZJhKN2peYVsbAKUtHc2VaHtp9El7XH&amp;stp=c0.5000x0.5000f_dst-emg0_p64x64_q75_tt6&amp;ur=aaa768&amp;_nc_sid=58080a&amp;oh=00_Af4qTfwO8OiPn8kirgyfAi8f8lShbKfE0c-JtPoew33d3Q&amp;oe=6A1252B3" loading="lazy" alt="" /></div>
+      <div class="ad-meta">
+        <div class="ad-name" title="Shah | Minoxidil + Transplant | Peptides Beat Rosemary Every Time - Copy">Shah | Minoxidil + Transplant | Peptides Beat Rosemary Every Time - Copy</div>
+        <div class="ad-campaign" title="ASC | Prospecting | Winners">ASC | Prospecting | Winners</div>
+        <div class="ad-stats">
+          <div class="ad-roas warn">0.86x</div>
+          <div class="ad-secondary">
+            <span>$2,604.38 spend</span>
+            <span>76 purch</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+
+    <div class="ad-card" data-id="120232798750480479" data-name="Peptides That Regrow Hair - Copy" data-title="" data-body="" data-thumb="https://scontent-dfw5-2.xx.fbcdn.net/v/t15.13418-10/539884922_1308888434149097_2501872290744629399_n.jpg?_nc_cat=104&amp;ccb=1-7&amp;_nc_ohc=_pgf313X_-0Q7kNvwE_tzyP&amp;_nc_oc=AdoGKEW1LyeYvimUDZJQaBCB3jcoutxYlZb8eGvfbaOIVwMi0zQ3SoXqNSvfPgO_v3s&amp;_nc_zt=23&amp;_nc_ht=scontent-dfw5-2.xx&amp;edm=AAT1rw8EAAAA&amp;_nc_gid=xv-E80dJsB9XHdKiq_eAjg&amp;_nc_tpa=Q5bMBQGinK7bVnQwzBbojELf_o3IB5d7dAKerHb6SMWpo9cANFz8UjX-mMPXAe6xjKx0B-zMFPlDLo2R&amp;stp=c0.5000x0.5000f_dst-emg0_p64x64_q75_tt6&amp;ur=aaa768&amp;_nc_sid=58080a&amp;oh=00_Af79yCf1sIV7Ebz18elGPZ_yqmkRPWmAAWJmh2unY2pstA&amp;oe=6A124CCF" data-fb="https://www.facebook.com/317231758141291/posts/122190581612337712" data-campaign="ASC | Prospecting | Winners" data-spend="2471.25" data-revenue="2945.00" data-roas="1.192" data-purchases="37" data-impressions="22123" data-clicks="1371" data-ctr="6.20" data-cpa="66.79">
+      <div class="ad-rank">#16</div>
+      <div class="ad-thumb"><img src="https://scontent-dfw5-2.xx.fbcdn.net/v/t15.13418-10/539884922_1308888434149097_2501872290744629399_n.jpg?_nc_cat=104&amp;ccb=1-7&amp;_nc_ohc=_pgf313X_-0Q7kNvwE_tzyP&amp;_nc_oc=AdoGKEW1LyeYvimUDZJQaBCB3jcoutxYlZb8eGvfbaOIVwMi0zQ3SoXqNSvfPgO_v3s&amp;_nc_zt=23&amp;_nc_ht=scontent-dfw5-2.xx&amp;edm=AAT1rw8EAAAA&amp;_nc_gid=xv-E80dJsB9XHdKiq_eAjg&amp;_nc_tpa=Q5bMBQGinK7bVnQwzBbojELf_o3IB5d7dAKerHb6SMWpo9cANFz8UjX-mMPXAe6xjKx0B-zMFPlDLo2R&amp;stp=c0.5000x0.5000f_dst-emg0_p64x64_q75_tt6&amp;ur=aaa768&amp;_nc_sid=58080a&amp;oh=00_Af79yCf1sIV7Ebz18elGPZ_yqmkRPWmAAWJmh2unY2pstA&amp;oe=6A124CCF" loading="lazy" alt="" /></div>
+      <div class="ad-meta">
+        <div class="ad-name" title="Peptides That Regrow Hair - Copy">Peptides That Regrow Hair - Copy</div>
+        <div class="ad-campaign" title="ASC | Prospecting | Winners">ASC | Prospecting | Winners</div>
+        <div class="ad-stats">
+          <div class="ad-roas ok">1.19x</div>
+          <div class="ad-secondary">
+            <span>$2,471.25 spend</span>
+            <span>37 purch</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+
+    <div class="ad-card" data-id="120241873221610479" data-name="Has Your Hair Stopped Growing? | Home Page - Copy" data-title="Has Your Hair Stopped Growing?" data-body="GHK-Cu is one of the most researched copper peptides in hair science-shown to support healthier follicles, stronger strands, and visible regrowth. This is peptide technology working at the scalp level, not a surface fix." data-thumb="https://scontent-dfw6-1.xx.fbcdn.net/v/t15.5256-10/640151168_1252044337028324_5477304224736082261_n.jpg?_nc_cat=101&amp;ccb=1-7&amp;_nc_ohc=UxVCB_i_FFIQ7kNvwFLuiqz&amp;_nc_oc=AdqhTifMPz40bAjOz6LphZx6grAviypsw6hoGDeY3wzMr1ztgdZT9rl_XVpx7JIoApw&amp;_nc_zt=23&amp;_nc_ht=scontent-dfw6-1.xx&amp;edm=AAT1rw8EAAAA&amp;_nc_gid=7gcet07PlEaSPd2RZxHIYQ&amp;_nc_tpa=Q5bMBQGmijOxIYV2VpyYpx-zSjHIm3u9DZlTFroHZurvX4PcbeaKOZadMGOMjEJ-7xyO83OUkr_KSo0b&amp;stp=c0.5000x0.5000f_dst-emg0_p64x64_q75_tt6&amp;ur=b696e2&amp;_nc_sid=58080a&amp;oh=00_Af708Yreg_Qs8FfInchZW-yt090vCZRcyx6kiix1V1ziAQ&amp;oe=6A12706E" data-fb="https://www.facebook.com/317231758141291/posts/122198037098337712" data-campaign="CBO | Tiktok Rip Winners | Group 3" data-spend="2344.63" data-revenue="1106.45" data-roas="0.472" data-purchases="25" data-impressions="31106" data-clicks="1821" data-ctr="5.85" data-cpa="93.79">
+      <div class="ad-rank">#17</div>
+      <div class="ad-thumb"><img src="https://scontent-dfw6-1.xx.fbcdn.net/v/t15.5256-10/640151168_1252044337028324_5477304224736082261_n.jpg?_nc_cat=101&amp;ccb=1-7&amp;_nc_ohc=UxVCB_i_FFIQ7kNvwFLuiqz&amp;_nc_oc=AdqhTifMPz40bAjOz6LphZx6grAviypsw6hoGDeY3wzMr1ztgdZT9rl_XVpx7JIoApw&amp;_nc_zt=23&amp;_nc_ht=scontent-dfw6-1.xx&amp;edm=AAT1rw8EAAAA&amp;_nc_gid=7gcet07PlEaSPd2RZxHIYQ&amp;_nc_tpa=Q5bMBQGmijOxIYV2VpyYpx-zSjHIm3u9DZlTFroHZurvX4PcbeaKOZadMGOMjEJ-7xyO83OUkr_KSo0b&amp;stp=c0.5000x0.5000f_dst-emg0_p64x64_q75_tt6&amp;ur=b696e2&amp;_nc_sid=58080a&amp;oh=00_Af708Yreg_Qs8FfInchZW-yt090vCZRcyx6kiix1V1ziAQ&amp;oe=6A12706E" loading="lazy" alt="" /><div class="ad-video-badge">▶ Video</div></div>
+      <div class="ad-meta">
+        <div class="ad-name" title="Has Your Hair Stopped Growing? | Home Page - Copy">Has Your Hair Stopped Growing? | Home Page - Copy</div>
+        <div class="ad-campaign" title="CBO | Tiktok Rip Winners | Group 3">CBO | Tiktok Rip Winners | Group 3</div>
+        <div class="ad-stats">
+          <div class="ad-roas warn">0.47x</div>
+          <div class="ad-secondary">
+            <span>$2,344.63 spend</span>
+            <span>25 purch</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+
+    <div class="ad-card" data-id="120234679844180479" data-name="Advantage+ shopping campaign 02/17/2025 Ad - Copy 2" data-title="Science-Driven Hair Serum for Fuller Hair" data-body="Unlike ordinary hair products, our serum uses advanced copper peptides—proven to nourish your scalp, strengthen strands, and promote visibly thicker, fuller hair. While competitors rely on outdated formulas, we’re harnessing cutting-edge science to deliver results you can feel and see. It&#x27;s time to give your hair the care it deserves." data-thumb="https://scontent-dfw5-2.xx.fbcdn.net/v/t45.1600-4/566630332_24848732981460431_5363730862692060326_n.png?_nc_cat=107&amp;ccb=1-7&amp;_nc_ohc=98QHTZFBdagQ7kNvwHC-t-I&amp;_nc_oc=AdpHVkcSWNvyrpAVXmx65e_xPQfkP1ueS6QXEfT8qedFb5FRtFnJ3yXuTARQtZC9Vbs&amp;_nc_zt=1&amp;_nc_ht=scontent-dfw5-2.xx&amp;edm=AAT1rw8EAAAA&amp;_nc_gid=P_k6_hX9qsEoLv8uNBSLwg&amp;_nc_tpa=Q5bMBQH_tSOG0GlI7q-R42dM8sgTg5PglEcGFP-F9rKV6Xy9qfMiRzvbdHAaAJrFCRitnR_VbCGXi8ZR&amp;stp=c0.5000x0.5000f_dst-emg0_p64x64_q75_tt6&amp;ur=52f3c4&amp;_nc_sid=58080a&amp;oh=00_Af7deihkW19lTF3AtZPdmujUgFF39s4MFuFgDpl4J-i15Q&amp;oe=6A1244BA" data-fb="https://www.facebook.com/317231758141291/posts/122192312786337712" data-campaign="ASC | Prospecting | Winners" data-spend="2344.60" data-revenue="3314.99" data-roas="1.414" data-purchases="38" data-impressions="37227" data-clicks="1690" data-ctr="4.54" data-cpa="61.70">
+      <div class="ad-rank">#18</div>
+      <div class="ad-thumb"><img src="https://scontent-dfw5-2.xx.fbcdn.net/v/t45.1600-4/566630332_24848732981460431_5363730862692060326_n.png?_nc_cat=107&amp;ccb=1-7&amp;_nc_ohc=98QHTZFBdagQ7kNvwHC-t-I&amp;_nc_oc=AdpHVkcSWNvyrpAVXmx65e_xPQfkP1ueS6QXEfT8qedFb5FRtFnJ3yXuTARQtZC9Vbs&amp;_nc_zt=1&amp;_nc_ht=scontent-dfw5-2.xx&amp;edm=AAT1rw8EAAAA&amp;_nc_gid=P_k6_hX9qsEoLv8uNBSLwg&amp;_nc_tpa=Q5bMBQH_tSOG0GlI7q-R42dM8sgTg5PglEcGFP-F9rKV6Xy9qfMiRzvbdHAaAJrFCRitnR_VbCGXi8ZR&amp;stp=c0.5000x0.5000f_dst-emg0_p64x64_q75_tt6&amp;ur=52f3c4&amp;_nc_sid=58080a&amp;oh=00_Af7deihkW19lTF3AtZPdmujUgFF39s4MFuFgDpl4J-i15Q&amp;oe=6A1244BA" loading="lazy" alt="" /></div>
+      <div class="ad-meta">
+        <div class="ad-name" title="Advantage+ shopping campaign 02/17/2025 Ad - Copy 2">Advantage+ shopping campaign 02/17/2025 Ad - Copy 2</div>
+        <div class="ad-campaign" title="ASC | Prospecting | Winners">ASC | Prospecting | Winners</div>
+        <div class="ad-stats">
+          <div class="ad-roas ok">1.41x</div>
+          <div class="ad-secondary">
+            <span>$2,344.60 spend</span>
+            <span>38 purch</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+
+    <div class="ad-card" data-id="120230685086870479" data-name="The Warning Nobody Got | Static | Finasteride Hook | 6.22.25 - Copy" data-title="Doctors Prefer This Now" data-body="A new formula is winning over both experts and everyday users. Here’s why it works." data-thumb="https://scontent-dfw6-1.xx.fbcdn.net/v/t45.1600-4/522774355_10228708168837791_6229713685681421769_n.png?_nc_cat=101&amp;ccb=1-7&amp;_nc_ohc=Wds57zudHocQ7kNvwFxWB-8&amp;_nc_oc=Ado44HmnKS6WBQvwOgJBM2tuKU7UR6Lmm2t4zkjvFSsEYZJX7npFTvQtVbW2fge_Q7s&amp;_nc_zt=1&amp;_nc_ht=scontent-dfw6-1.xx&amp;edm=AAT1rw8EAAAA&amp;_nc_gid=JWvDMH7FCcWAF-PWFX1kBQ&amp;_nc_tpa=Q5bMBQHWiTriFZ5n_Ag_AZa0ThJRcfJPmJDvD716v1ufnJ7hH6TqSWnG9xAVVh4l1TIVJt3_NQ4OUWwM&amp;stp=c0.5000x0.5000f_dst-emg0_p64x64_q75_tt6&amp;ur=52f3c4&amp;_nc_sid=58080a&amp;oh=00_Af7jKlLOPZ7ASro_Z2NI3yLMwJ3Y-foZJxbDFCS7Pe-Kag&amp;oe=6A125AC7" data-fb="https://www.facebook.com/317231758141291/posts/122175341894337712" data-campaign="T1 | Prospecting | Celebrity Listicle Test | ABO" data-spend="2074.28" data-revenue="2786.63" data-roas="1.343" data-purchases="30" data-impressions="24580" data-clicks="2054" data-ctr="8.36" data-cpa="69.14">
+      <div class="ad-rank">#19</div>
+      <div class="ad-thumb"><img src="https://scontent-dfw6-1.xx.fbcdn.net/v/t45.1600-4/522774355_10228708168837791_6229713685681421769_n.png?_nc_cat=101&amp;ccb=1-7&amp;_nc_ohc=Wds57zudHocQ7kNvwFxWB-8&amp;_nc_oc=Ado44HmnKS6WBQvwOgJBM2tuKU7UR6Lmm2t4zkjvFSsEYZJX7npFTvQtVbW2fge_Q7s&amp;_nc_zt=1&amp;_nc_ht=scontent-dfw6-1.xx&amp;edm=AAT1rw8EAAAA&amp;_nc_gid=JWvDMH7FCcWAF-PWFX1kBQ&amp;_nc_tpa=Q5bMBQHWiTriFZ5n_Ag_AZa0ThJRcfJPmJDvD716v1ufnJ7hH6TqSWnG9xAVVh4l1TIVJt3_NQ4OUWwM&amp;stp=c0.5000x0.5000f_dst-emg0_p64x64_q75_tt6&amp;ur=52f3c4&amp;_nc_sid=58080a&amp;oh=00_Af7jKlLOPZ7ASro_Z2NI3yLMwJ3Y-foZJxbDFCS7Pe-Kag&amp;oe=6A125AC7" loading="lazy" alt="" /></div>
+      <div class="ad-meta">
+        <div class="ad-name" title="The Warning Nobody Got | Static | Finasteride Hook | 6.22.25 - Copy">The Warning Nobody Got | Static | Finasteride Hook | 6.22.25 - Copy</div>
+        <div class="ad-campaign" title="T1 | Prospecting | Celebrity Listicle Test | ABO">T1 | Prospecting | Celebrity Listicle Test | ABO</div>
+        <div class="ad-stats">
+          <div class="ad-roas ok">1.34x</div>
+          <div class="ad-secondary">
+            <span>$2,074.28 spend</span>
+            <span>30 purch</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+
+    <div class="ad-card" data-id="120240983688370479" data-name="GHK-Cu: Trichologist Recommended Hair Restoration | Home Page" data-title="GHK-Cu: Trichologist Recommended Hair Restoration" data-body="GHK-Cu is one of the most researched copper peptides in hair science-shown to support healthier follicles, stronger strands, and visible regrowth. This is peptide technology working at the scalp level, not a surface fix." data-thumb="https://scontent-dfw5-2.xx.fbcdn.net/v/t15.5256-10/629819182_2020127981888119_3942839145294600412_n.jpg?_nc_cat=100&amp;ccb=1-7&amp;_nc_ohc=iYL8gP6DU34Q7kNvwGjezwd&amp;_nc_oc=AdrO4m5Oe6a6zui8v_YhrP18VJkYN8MoLVhi_BeC2xmf_MMOdPcPbp6MLspM_3Xj1ts&amp;_nc_zt=23&amp;_nc_ht=scontent-dfw5-2.xx&amp;edm=AAT1rw8EAAAA&amp;_nc_gid=ZwjpFmZwhn4ZgIuZUEFlmw&amp;_nc_tpa=Q5bMBQFQC5b1dTVq2fUAnPACXBrDdlfGsjTAy8bZY1AJ1DlVS3D-zGHSfq0fs3Ftd-wdk5j5u85AFu8S&amp;stp=c0.5000x0.5000f_dst-emg0_p64x64_q75_tt6&amp;ur=b696e2&amp;_nc_sid=58080a&amp;oh=00_Af7tNIZXkysivU7MjNCZd3clLuDdofM-fjRonV3PkSndGg&amp;oe=6A12475D" data-fb="https://www.facebook.com/317231758141291/posts/122196099170337712" data-campaign="ABO | Test Tiktok Rips | 2.6.26" data-spend="2002.20" data-revenue="1557.35" data-roas="0.778" data-purchases="25" data-impressions="29061" data-clicks="870" data-ctr="2.99" data-cpa="80.09">
+      <div class="ad-rank">#20</div>
+      <div class="ad-thumb"><img src="https://scontent-dfw5-2.xx.fbcdn.net/v/t15.5256-10/629819182_2020127981888119_3942839145294600412_n.jpg?_nc_cat=100&amp;ccb=1-7&amp;_nc_ohc=iYL8gP6DU34Q7kNvwGjezwd&amp;_nc_oc=AdrO4m5Oe6a6zui8v_YhrP18VJkYN8MoLVhi_BeC2xmf_MMOdPcPbp6MLspM_3Xj1ts&amp;_nc_zt=23&amp;_nc_ht=scontent-dfw5-2.xx&amp;edm=AAT1rw8EAAAA&amp;_nc_gid=ZwjpFmZwhn4ZgIuZUEFlmw&amp;_nc_tpa=Q5bMBQFQC5b1dTVq2fUAnPACXBrDdlfGsjTAy8bZY1AJ1DlVS3D-zGHSfq0fs3Ftd-wdk5j5u85AFu8S&amp;stp=c0.5000x0.5000f_dst-emg0_p64x64_q75_tt6&amp;ur=b696e2&amp;_nc_sid=58080a&amp;oh=00_Af7tNIZXkysivU7MjNCZd3clLuDdofM-fjRonV3PkSndGg&amp;oe=6A12475D" loading="lazy" alt="" /><div class="ad-video-badge">▶ Video</div></div>
+      <div class="ad-meta">
+        <div class="ad-name" title="GHK-Cu: Trichologist Recommended Hair Restoration | Home Page">GHK-Cu: Trichologist Recommended Hair Restoration | Home Page</div>
+        <div class="ad-campaign" title="ABO | Test Tiktok Rips | 2.6.26">ABO | Test Tiktok Rips | 2.6.26</div>
+        <div class="ad-stats">
+          <div class="ad-roas warn">0.78x</div>
+          <div class="ad-secondary">
+            <span>$2,002.20 spend</span>
+            <span>25 purch</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+
+    <div class="ad-card" data-id="120240799346820479" data-name="GHK-Cu: No Side-Effects Topical Growth Serum | Home Page" data-title="GHK-Cu: No Side-Effects Topical Growth Serum" data-body="GHK-Cu is one of the most researched copper peptides in hair science-shown to support healthier follicles, stronger strands, and visible regrowth. This is peptide technology working at the scalp level, not a surface fix." data-thumb="https://scontent-dfw6-1.xx.fbcdn.net/v/t15.5256-10/629123860_1503272327829500_4082560976702481899_n.jpg?_nc_cat=102&amp;ccb=1-7&amp;_nc_ohc=Jd_jDCGHq4sQ7kNvwG6pBTW&amp;_nc_oc=AdqC_fGtLhW-oXIJKyuWOx--BJ4Acrd5DQriKwdGT5yDpr_KMt5hLCp8nSbhL9vfV9w&amp;_nc_zt=23&amp;_nc_ht=scontent-dfw6-1.xx&amp;edm=AAT1rw8EAAAA&amp;_nc_gid=Z75orRD6Diw7uvrhHblZJA&amp;_nc_tpa=Q5bMBQEQdWyZdkKPETnWk6PQHKqymKXJZiEj7KXPYerfWHAGIOCKuigBvyTPiGWKqsgYgXHI2M89RjW3&amp;stp=c0.5000x0.5000f_dst-emg0_p64x64_q75_tt6&amp;ur=b696e2&amp;_nc_sid=58080a&amp;oh=00_Af4EAlYwWWCNtLeJVB0WemZsTVskTSwrWD_YbQJKZkVt1w&amp;oe=6A125C31" data-fb="https://www.facebook.com/317231758141291/posts/122196115796337712" data-campaign="ABO | Test Tiktok Rips | 2.6.26" data-spend="1995.14" data-revenue="1692.00" data-roas="0.848" data-purchases="27" data-impressions="61783" data-clicks="1491" data-ctr="2.41" data-cpa="73.89">
+      <div class="ad-rank">#21</div>
+      <div class="ad-thumb"><img src="https://scontent-dfw6-1.xx.fbcdn.net/v/t15.5256-10/629123860_1503272327829500_4082560976702481899_n.jpg?_nc_cat=102&amp;ccb=1-7&amp;_nc_ohc=Jd_jDCGHq4sQ7kNvwG6pBTW&amp;_nc_oc=AdqC_fGtLhW-oXIJKyuWOx--BJ4Acrd5DQriKwdGT5yDpr_KMt5hLCp8nSbhL9vfV9w&amp;_nc_zt=23&amp;_nc_ht=scontent-dfw6-1.xx&amp;edm=AAT1rw8EAAAA&amp;_nc_gid=Z75orRD6Diw7uvrhHblZJA&amp;_nc_tpa=Q5bMBQEQdWyZdkKPETnWk6PQHKqymKXJZiEj7KXPYerfWHAGIOCKuigBvyTPiGWKqsgYgXHI2M89RjW3&amp;stp=c0.5000x0.5000f_dst-emg0_p64x64_q75_tt6&amp;ur=b696e2&amp;_nc_sid=58080a&amp;oh=00_Af4EAlYwWWCNtLeJVB0WemZsTVskTSwrWD_YbQJKZkVt1w&amp;oe=6A125C31" loading="lazy" alt="" /><div class="ad-video-badge">▶ Video</div></div>
+      <div class="ad-meta">
+        <div class="ad-name" title="GHK-Cu: No Side-Effects Topical Growth Serum | Home Page">GHK-Cu: No Side-Effects Topical Growth Serum | Home Page</div>
+        <div class="ad-campaign" title="ABO | Test Tiktok Rips | 2.6.26">ABO | Test Tiktok Rips | 2.6.26</div>
+        <div class="ad-stats">
+          <div class="ad-roas warn">0.85x</div>
+          <div class="ad-secondary">
+            <span>$1,995.14 spend</span>
+            <span>27 purch</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+
+    <div class="ad-card" data-id="120241872564180479" data-name="AHK-Cu: Doctor Recommended Hair Regrowth Serum | Home Page - Copy" data-title="AHK-Cu: Doctor Recommended Hair Regrowth Serum" data-body="Introducing the ultimate duo for thicker, healthier hair!
+
+• GHK-Cu: supports follicle health &amp; strand strength
+• AHK-Cu: helps reduce thinning factors &amp; promotes a healthy hair cycle
+
+Together, they create a synergistic effect that&#x27;s more powerful than alone. Say goodbye to harsh chemicals and hello to visibly fuller locks!" data-thumb="https://scontent-dfw5-1.xx.fbcdn.net/v/t15.5256-10/644217606_25838047542511089_3578104864957695825_n.jpg?_nc_cat=110&amp;ccb=1-7&amp;_nc_ohc=E5s6VCjPX3MQ7kNvwGkFosa&amp;_nc_oc=Adr3JENyEJWBevlOqp2U3EBpJyu7ftncKw2C_bVTp0VjOQ80kmxtS338_k_gS6JXKkQ&amp;_nc_zt=23&amp;_nc_ht=scontent-dfw5-1.xx&amp;edm=AAT1rw8EAAAA&amp;_nc_gid=STCgqvXgzfbL0JlErc4g7g&amp;_nc_tpa=Q5bMBQFDokTcJubD2GdvOnkQS7qpkHh1XRJzaAbdiOq_O4efZ_fpuHNE5lFFJztvseL6J2GnTphSkgms&amp;stp=c0.5000x0.5000f_dst-emg0_p64x64_q75_tt6&amp;ur=b696e2&amp;_nc_sid=58080a&amp;oh=00_Af6lInm5EMnToULCyHuSA5-Ujq4YrhFaomXNGr63IDFRhQ&amp;oe=6A126C8D" data-fb="https://www.facebook.com/317231758141291/posts/122198032046337712" data-campaign="CBO | Tiktok Rip Winners | Group 3" data-spend="1955.23" data-revenue="1479.95" data-roas="0.757" data-purchases="26" data-impressions="32690" data-clicks="2096" data-ctr="6.41" data-cpa="75.20">
+      <div class="ad-rank">#22</div>
+      <div class="ad-thumb"><img src="https://scontent-dfw5-1.xx.fbcdn.net/v/t15.5256-10/644217606_25838047542511089_3578104864957695825_n.jpg?_nc_cat=110&amp;ccb=1-7&amp;_nc_ohc=E5s6VCjPX3MQ7kNvwGkFosa&amp;_nc_oc=Adr3JENyEJWBevlOqp2U3EBpJyu7ftncKw2C_bVTp0VjOQ80kmxtS338_k_gS6JXKkQ&amp;_nc_zt=23&amp;_nc_ht=scontent-dfw5-1.xx&amp;edm=AAT1rw8EAAAA&amp;_nc_gid=STCgqvXgzfbL0JlErc4g7g&amp;_nc_tpa=Q5bMBQFDokTcJubD2GdvOnkQS7qpkHh1XRJzaAbdiOq_O4efZ_fpuHNE5lFFJztvseL6J2GnTphSkgms&amp;stp=c0.5000x0.5000f_dst-emg0_p64x64_q75_tt6&amp;ur=b696e2&amp;_nc_sid=58080a&amp;oh=00_Af6lInm5EMnToULCyHuSA5-Ujq4YrhFaomXNGr63IDFRhQ&amp;oe=6A126C8D" loading="lazy" alt="" /><div class="ad-video-badge">▶ Video</div></div>
+      <div class="ad-meta">
+        <div class="ad-name" title="AHK-Cu: Doctor Recommended Hair Regrowth Serum | Home Page - Copy">AHK-Cu: Doctor Recommended Hair Regrowth Serum | Home Page - Copy</div>
+        <div class="ad-campaign" title="CBO | Tiktok Rip Winners | Group 3">CBO | Tiktok Rip Winners | Group 3</div>
+        <div class="ad-stats">
+          <div class="ad-roas warn">0.76x</div>
+          <div class="ad-secondary">
+            <span>$1,955.23 spend</span>
+            <span>26 purch</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+
+    <div class="ad-card" data-id="120241140357180479" data-name="GHK-Cu: Zero-Risk Hair Growth | Home Page" data-title="GHK-Cu: Zero-Risk Hair Growth" data-body="GHK-Cu is one of the most researched copper peptides in hair science-shown to support healthier follicles, stronger strands, and visible regrowth. This is peptide technology working at the scalp level, not a surface fix." data-thumb="https://scontent-dfw5-2.xx.fbcdn.net/v/t15.5256-10/638233639_1606143690517471_6248321652818997317_n.jpg?_nc_cat=104&amp;ccb=1-7&amp;_nc_ohc=_FuKuui-8aIQ7kNvwGth5bo&amp;_nc_oc=AdqQ05Jd-w2EHlgShIcpl00c_B4MbU3xTxy397Agmy8zR5oCbg1wevR9mBII-SCGWrg&amp;_nc_zt=23&amp;_nc_ht=scontent-dfw5-2.xx&amp;edm=AAT1rw8EAAAA&amp;_nc_gid=Gobfp2_qqrqCdrRNpoLs4w&amp;_nc_tpa=Q5bMBQE67HBmYjz-V-s7gf0rs0aDnAV0z3hfMATB53JdnKaDjcTNwVE0frt3XSSNmXz0fR8VFf-0V22r&amp;stp=c0.5000x0.5000f_dst-emg0_p64x64_q75_tt6&amp;ur=b696e2&amp;_nc_sid=58080a&amp;oh=00_Af6_eRL-QW07h0CtXp4gflHCTSV5athZg5Mx9t_GhnRIoA&amp;oe=6A12541B" data-fb="https://www.facebook.com/317231758141291/posts/122196136304337712" data-campaign="ABO | Test Tiktok Rips | 2.6.26" data-spend="1875.75" data-revenue="1183.95" data-roas="0.631" data-purchases="25" data-impressions="45534" data-clicks="1012" data-ctr="2.22" data-cpa="75.03">
+      <div class="ad-rank">#23</div>
+      <div class="ad-thumb"><img src="https://scontent-dfw5-2.xx.fbcdn.net/v/t15.5256-10/638233639_1606143690517471_6248321652818997317_n.jpg?_nc_cat=104&amp;ccb=1-7&amp;_nc_ohc=_FuKuui-8aIQ7kNvwGth5bo&amp;_nc_oc=AdqQ05Jd-w2EHlgShIcpl00c_B4MbU3xTxy397Agmy8zR5oCbg1wevR9mBII-SCGWrg&amp;_nc_zt=23&amp;_nc_ht=scontent-dfw5-2.xx&amp;edm=AAT1rw8EAAAA&amp;_nc_gid=Gobfp2_qqrqCdrRNpoLs4w&amp;_nc_tpa=Q5bMBQE67HBmYjz-V-s7gf0rs0aDnAV0z3hfMATB53JdnKaDjcTNwVE0frt3XSSNmXz0fR8VFf-0V22r&amp;stp=c0.5000x0.5000f_dst-emg0_p64x64_q75_tt6&amp;ur=b696e2&amp;_nc_sid=58080a&amp;oh=00_Af6_eRL-QW07h0CtXp4gflHCTSV5athZg5Mx9t_GhnRIoA&amp;oe=6A12541B" loading="lazy" alt="" /><div class="ad-video-badge">▶ Video</div></div>
+      <div class="ad-meta">
+        <div class="ad-name" title="GHK-Cu: Zero-Risk Hair Growth | Home Page">GHK-Cu: Zero-Risk Hair Growth | Home Page</div>
+        <div class="ad-campaign" title="ABO | Test Tiktok Rips | 2.6.26">ABO | Test Tiktok Rips | 2.6.26</div>
+        <div class="ad-stats">
+          <div class="ad-roas warn">0.63x</div>
+          <div class="ad-secondary">
+            <span>$1,875.75 spend</span>
+            <span>25 purch</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+
+    <div class="ad-card" data-id="120232798750470479" data-name="Peptides That Regrow Hair - Copy" data-title="" data-body="" data-thumb="https://scontent-dfw5-2.xx.fbcdn.net/v/t15.13418-10/539884922_1308888434149097_2501872290744629399_n.jpg?_nc_cat=104&amp;ccb=1-7&amp;_nc_ohc=_pgf313X_-0Q7kNvwE_tzyP&amp;_nc_oc=AdoGKEW1LyeYvimUDZJQaBCB3jcoutxYlZb8eGvfbaOIVwMi0zQ3SoXqNSvfPgO_v3s&amp;_nc_zt=23&amp;_nc_ht=scontent-dfw5-2.xx&amp;edm=AAT1rw8EAAAA&amp;_nc_gid=jj_Z0ublas3WNJ-7WEWNSg&amp;_nc_tpa=Q5bMBQHmM0YZ07v6Hx-Mpmmw9_NcW8myN3GrMEsANF_6dM6gDofEJ7pLDDXsb6als1_RiF2gHWlkNNnb&amp;stp=c0.5000x0.5000f_dst-emg0_p64x64_q75_tt6&amp;ur=aaa768&amp;_nc_sid=58080a&amp;oh=00_Af4BNFN1CHfmiyw4dHf-ztVdiCpaSIcyuakWGWCtKwATww&amp;oe=6A124CCF" data-fb="https://www.facebook.com/317231758141291/posts/122190581936337712" data-campaign="ASC | Prospecting | Winners" data-spend="1800.89" data-revenue="1946.99" data-roas="1.081" data-purchases="26" data-impressions="15810" data-clicks="770" data-ctr="4.87" data-cpa="69.27">
+      <div class="ad-rank">#24</div>
+      <div class="ad-thumb"><img src="https://scontent-dfw5-2.xx.fbcdn.net/v/t15.13418-10/539884922_1308888434149097_2501872290744629399_n.jpg?_nc_cat=104&amp;ccb=1-7&amp;_nc_ohc=_pgf313X_-0Q7kNvwE_tzyP&amp;_nc_oc=AdoGKEW1LyeYvimUDZJQaBCB3jcoutxYlZb8eGvfbaOIVwMi0zQ3SoXqNSvfPgO_v3s&amp;_nc_zt=23&amp;_nc_ht=scontent-dfw5-2.xx&amp;edm=AAT1rw8EAAAA&amp;_nc_gid=jj_Z0ublas3WNJ-7WEWNSg&amp;_nc_tpa=Q5bMBQHmM0YZ07v6Hx-Mpmmw9_NcW8myN3GrMEsANF_6dM6gDofEJ7pLDDXsb6als1_RiF2gHWlkNNnb&amp;stp=c0.5000x0.5000f_dst-emg0_p64x64_q75_tt6&amp;ur=aaa768&amp;_nc_sid=58080a&amp;oh=00_Af4BNFN1CHfmiyw4dHf-ztVdiCpaSIcyuakWGWCtKwATww&amp;oe=6A124CCF" loading="lazy" alt="" /></div>
+      <div class="ad-meta">
+        <div class="ad-name" title="Peptides That Regrow Hair - Copy">Peptides That Regrow Hair - Copy</div>
+        <div class="ad-campaign" title="ASC | Prospecting | Winners">ASC | Prospecting | Winners</div>
+        <div class="ad-stats">
+          <div class="ad-roas ok">1.08x</div>
+          <div class="ad-secondary">
+            <span>$1,800.89 spend</span>
+            <span>26 purch</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+
+    <div class="ad-card" data-id="120241873301830479" data-name="GHK-Cu: No Side-Effects Topical Growth Serum | Home Page - Copy" data-title="GHK-Cu: No Side-Effects Topical Growth Serum" data-body="GHK-Cu is one of the most researched copper peptides in hair science-shown to support healthier follicles, stronger strands, and visible regrowth. This is peptide technology working at the scalp level, not a surface fix." data-thumb="https://scontent-dfw5-2.xx.fbcdn.net/v/t15.5256-10/634083530_922674553835190_724141573948477546_n.jpg?_nc_cat=104&amp;ccb=1-7&amp;_nc_ohc=t_etUVwT0VkQ7kNvwFNBuiB&amp;_nc_oc=AdpAwMuF-bGEwjIf-IAyqI6VVZMU7JBFhtrY0IJcDbZc3hYgN1vFgdBIM1EZUxgh0FI&amp;_nc_zt=23&amp;_nc_ht=scontent-dfw5-2.xx&amp;edm=AAT1rw8EAAAA&amp;_nc_gid=HX1gzOMXsxVt9JhM41EiZQ&amp;_nc_tpa=Q5bMBQEGRNwakFVmEXtWj4hieuiRPq9IYoyYN4bSwYWdLiN7tB6H5chISJNwebRFtNyOJZ59bomyamzR&amp;stp=c0.5000x0.5000f_dst-emg0_p64x64_q75_tt6&amp;ur=b696e2&amp;_nc_sid=58080a&amp;oh=00_Af7Jcccx95U9YlJSPiHSnyRLWvifg0qIuhEYX4gXRidRoA&amp;oe=6A125767" data-fb="https://www.facebook.com/317231758141291/posts/122198045906337712" data-campaign="CBO | Tiktok Rip Winners | Group 3" data-spend="1712.03" data-revenue="955.30" data-roas="0.558" data-purchases="17" data-impressions="22912" data-clicks="1211" data-ctr="5.29" data-cpa="100.71">
+      <div class="ad-rank">#25</div>
+      <div class="ad-thumb"><img src="https://scontent-dfw5-2.xx.fbcdn.net/v/t15.5256-10/634083530_922674553835190_724141573948477546_n.jpg?_nc_cat=104&amp;ccb=1-7&amp;_nc_ohc=t_etUVwT0VkQ7kNvwFNBuiB&amp;_nc_oc=AdpAwMuF-bGEwjIf-IAyqI6VVZMU7JBFhtrY0IJcDbZc3hYgN1vFgdBIM1EZUxgh0FI&amp;_nc_zt=23&amp;_nc_ht=scontent-dfw5-2.xx&amp;edm=AAT1rw8EAAAA&amp;_nc_gid=HX1gzOMXsxVt9JhM41EiZQ&amp;_nc_tpa=Q5bMBQEGRNwakFVmEXtWj4hieuiRPq9IYoyYN4bSwYWdLiN7tB6H5chISJNwebRFtNyOJZ59bomyamzR&amp;stp=c0.5000x0.5000f_dst-emg0_p64x64_q75_tt6&amp;ur=b696e2&amp;_nc_sid=58080a&amp;oh=00_Af7Jcccx95U9YlJSPiHSnyRLWvifg0qIuhEYX4gXRidRoA&amp;oe=6A125767" loading="lazy" alt="" /><div class="ad-video-badge">▶ Video</div></div>
+      <div class="ad-meta">
+        <div class="ad-name" title="GHK-Cu: No Side-Effects Topical Growth Serum | Home Page - Copy">GHK-Cu: No Side-Effects Topical Growth Serum | Home Page - Copy</div>
+        <div class="ad-campaign" title="CBO | Tiktok Rip Winners | Group 3">CBO | Tiktok Rip Winners | Group 3</div>
+        <div class="ad-stats">
+          <div class="ad-roas warn">0.56x</div>
+          <div class="ad-secondary">
+            <span>$1,712.03 spend</span>
+            <span>17 purch</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+
+    <div class="ad-card" data-id="120241104340740479" data-name="Has Your Hair Stopped Growing? | Home Page - Copy" data-title="Has Your Hair Stopped Growing?" data-body="GHK-Cu is one of the most researched copper peptides in hair science-shown to support healthier follicles, stronger strands, and visible regrowth. This is peptide technology working at the scalp level, not a surface fix." data-thumb="https://scontent-dfw5-1.xx.fbcdn.net/v/t15.5256-10/628358880_1554286198960695_1018646016496181047_n.jpg?_nc_cat=111&amp;ccb=1-7&amp;_nc_ohc=KhEuhSqitYIQ7kNvwGh-sNb&amp;_nc_oc=AdoVGV23dgmyNdLxRbPc8JOFc7sPHo3mTvCkw-daa3t1xK-sSsBbjfbK8mRWfp7aIjA&amp;_nc_zt=23&amp;_nc_ht=scontent-dfw5-1.xx&amp;edm=AAT1rw8EAAAA&amp;_nc_gid=HEQWR9smkfw7JG6XKBbZ-g&amp;_nc_tpa=Q5bMBQGJH84cX3KsLwhG4BcsadWgxpyuydJoaUDuq6_jcTJS4n_jRndTzK2f7Xi4hwPuTvaNv8zy558y&amp;stp=c0.5000x0.5000f_dst-emg0_p64x64_q75_tt6&amp;ur=b696e2&amp;_nc_sid=58080a&amp;oh=00_Af51OKgAVAMVCupV74vbsP-Xcda-gVV1LpkA8-QZcZeGcg&amp;oe=6A124E00" data-fb="https://www.facebook.com/317231758141291/posts/122196120248337712" data-campaign="CBO | Tiktok Rip Winners | Group 2" data-spend="1671.12" data-revenue="2082.75" data-roas="1.246" data-purchases="33" data-impressions="34887" data-clicks="995" data-ctr="2.85" data-cpa="50.64">
+      <div class="ad-rank">#26</div>
+      <div class="ad-thumb"><img src="https://scontent-dfw5-1.xx.fbcdn.net/v/t15.5256-10/628358880_1554286198960695_1018646016496181047_n.jpg?_nc_cat=111&amp;ccb=1-7&amp;_nc_ohc=KhEuhSqitYIQ7kNvwGh-sNb&amp;_nc_oc=AdoVGV23dgmyNdLxRbPc8JOFc7sPHo3mTvCkw-daa3t1xK-sSsBbjfbK8mRWfp7aIjA&amp;_nc_zt=23&amp;_nc_ht=scontent-dfw5-1.xx&amp;edm=AAT1rw8EAAAA&amp;_nc_gid=HEQWR9smkfw7JG6XKBbZ-g&amp;_nc_tpa=Q5bMBQGJH84cX3KsLwhG4BcsadWgxpyuydJoaUDuq6_jcTJS4n_jRndTzK2f7Xi4hwPuTvaNv8zy558y&amp;stp=c0.5000x0.5000f_dst-emg0_p64x64_q75_tt6&amp;ur=b696e2&amp;_nc_sid=58080a&amp;oh=00_Af51OKgAVAMVCupV74vbsP-Xcda-gVV1LpkA8-QZcZeGcg&amp;oe=6A124E00" loading="lazy" alt="" /><div class="ad-video-badge">▶ Video</div></div>
+      <div class="ad-meta">
+        <div class="ad-name" title="Has Your Hair Stopped Growing? | Home Page - Copy">Has Your Hair Stopped Growing? | Home Page - Copy</div>
+        <div class="ad-campaign" title="CBO | Tiktok Rip Winners | Group 2">CBO | Tiktok Rip Winners | Group 2</div>
+        <div class="ad-stats">
+          <div class="ad-roas ok">1.25x</div>
+          <div class="ad-secondary">
+            <span>$1,671.12 spend</span>
+            <span>33 purch</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+
+    <div class="ad-card" data-id="120240799346810479" data-name="Has Your Hair Stopped Growing? | Home Page" data-title="Has Your Hair Stopped Growing?" data-body="GHK-Cu is one of the most researched copper peptides in hair science-shown to support healthier follicles, stronger strands, and visible regrowth. This is peptide technology working at the scalp level, not a surface fix." data-thumb="https://scontent-dfw6-1.xx.fbcdn.net/v/t15.5256-10/629123860_1503272327829500_4082560976702481899_n.jpg?_nc_cat=102&amp;ccb=1-7&amp;_nc_ohc=Jd_jDCGHq4sQ7kNvwG6pBTW&amp;_nc_oc=AdqC_fGtLhW-oXIJKyuWOx--BJ4Acrd5DQriKwdGT5yDpr_KMt5hLCp8nSbhL9vfV9w&amp;_nc_zt=23&amp;_nc_ht=scontent-dfw6-1.xx&amp;edm=AAT1rw8EAAAA&amp;_nc_gid=Xbn4f7KDtnVJvcPeBf4E7w&amp;_nc_tpa=Q5bMBQGzFCbLjT1fEyFR4CXYM_H3sYTgmYsoJqjiYUsc6NpfkNRc7HoJSFbiylzgZPq0gHVx5Z4xSwwO&amp;stp=c0.5000x0.5000f_dst-emg0_p64x64_q75_tt6&amp;ur=b696e2&amp;_nc_sid=58080a&amp;oh=00_Af5rTsS7DVztX_jlEEgU1Vsd-7cOOPQSQDcJXaOdOl4fiA&amp;oe=6A125C31" data-fb="https://www.facebook.com/317231758141291/posts/122196115718337712" data-campaign="ABO | Test Tiktok Rips | 2.6.26" data-spend="1611.65" data-revenue="1471.65" data-roas="0.913" data-purchases="30" data-impressions="42930" data-clicks="1164" data-ctr="2.71" data-cpa="53.72">
+      <div class="ad-rank">#27</div>
+      <div class="ad-thumb"><img src="https://scontent-dfw6-1.xx.fbcdn.net/v/t15.5256-10/629123860_1503272327829500_4082560976702481899_n.jpg?_nc_cat=102&amp;ccb=1-7&amp;_nc_ohc=Jd_jDCGHq4sQ7kNvwG6pBTW&amp;_nc_oc=AdqC_fGtLhW-oXIJKyuWOx--BJ4Acrd5DQriKwdGT5yDpr_KMt5hLCp8nSbhL9vfV9w&amp;_nc_zt=23&amp;_nc_ht=scontent-dfw6-1.xx&amp;edm=AAT1rw8EAAAA&amp;_nc_gid=Xbn4f7KDtnVJvcPeBf4E7w&amp;_nc_tpa=Q5bMBQGzFCbLjT1fEyFR4CXYM_H3sYTgmYsoJqjiYUsc6NpfkNRc7HoJSFbiylzgZPq0gHVx5Z4xSwwO&amp;stp=c0.5000x0.5000f_dst-emg0_p64x64_q75_tt6&amp;ur=b696e2&amp;_nc_sid=58080a&amp;oh=00_Af5rTsS7DVztX_jlEEgU1Vsd-7cOOPQSQDcJXaOdOl4fiA&amp;oe=6A125C31" loading="lazy" alt="" /><div class="ad-video-badge">▶ Video</div></div>
+      <div class="ad-meta">
+        <div class="ad-name" title="Has Your Hair Stopped Growing? | Home Page">Has Your Hair Stopped Growing? | Home Page</div>
+        <div class="ad-campaign" title="ABO | Test Tiktok Rips | 2.6.26">ABO | Test Tiktok Rips | 2.6.26</div>
+        <div class="ad-stats">
+          <div class="ad-roas warn">0.91x</div>
+          <div class="ad-secondary">
+            <span>$1,611.65 spend</span>
+            <span>30 purch</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+
+    <div class="ad-card" data-id="120232655164060479" data-name="Problem/Symptom Call-Out - Copy" data-title="" data-body="" data-thumb="https://external-dfw5-1.xx.fbcdn.net/emg1/v/t13/7484367294432628089?url=https%3A%2F%2Fwww.facebook.com%2Fads%2Fimage%2F%3Fd%3DAQI1p3ZcZn2AY8jzRnhZbsK-v_FvCRz9TXD1xOCA--65_dIUXM4DmQtZJYr30tDwmPO0bhUQ8jLuuubNP-WBzHWmw0rL6YDRSf9Fn7n42lHB4fRnVLRSE2y2YXqTX_An6Qw3k5vryIuXLBAv3aJ70g-F&amp;fb_obo=1&amp;utld=facebook.com&amp;stp=c0.5000x0.5000f_dst-emg0_p64x64_q75_tt6&amp;edm=AAT1rw8EAAAA&amp;_nc_gid=ScntlFmYCQuzLV4HDt5nnw&amp;_nc_oc=AdrjMsTukMjM2LkM2VkKz32uNNyz-JAEJwgLjCQ5rrp4JpSUZEHCjZEjahZbYZ5hFrg&amp;ccb=13-1&amp;oh=06_Q3-_Aaj2Uk7rePDYvr67e-9fdeIhpGajmjLeHzj7a-OtUNj7&amp;oe=6A0E6780&amp;_nc_sid=58080a" data-fb="https://www.facebook.com/317231758141291/posts/122143800908337712" data-campaign="ASC | Prospecting | Winners" data-spend="1576.55" data-revenue="2714.00" data-roas="1.721" data-purchases="30" data-impressions="29750" data-clicks="936" data-ctr="3.15" data-cpa="52.55">
+      <div class="ad-rank">#28</div>
+      <div class="ad-thumb"><img src="https://external-dfw5-1.xx.fbcdn.net/emg1/v/t13/7484367294432628089?url=https%3A%2F%2Fwww.facebook.com%2Fads%2Fimage%2F%3Fd%3DAQI1p3ZcZn2AY8jzRnhZbsK-v_FvCRz9TXD1xOCA--65_dIUXM4DmQtZJYr30tDwmPO0bhUQ8jLuuubNP-WBzHWmw0rL6YDRSf9Fn7n42lHB4fRnVLRSE2y2YXqTX_An6Qw3k5vryIuXLBAv3aJ70g-F&amp;fb_obo=1&amp;utld=facebook.com&amp;stp=c0.5000x0.5000f_dst-emg0_p64x64_q75_tt6&amp;edm=AAT1rw8EAAAA&amp;_nc_gid=ScntlFmYCQuzLV4HDt5nnw&amp;_nc_oc=AdrjMsTukMjM2LkM2VkKz32uNNyz-JAEJwgLjCQ5rrp4JpSUZEHCjZEjahZbYZ5hFrg&amp;ccb=13-1&amp;oh=06_Q3-_Aaj2Uk7rePDYvr67e-9fdeIhpGajmjLeHzj7a-OtUNj7&amp;oe=6A0E6780&amp;_nc_sid=58080a" loading="lazy" alt="" /></div>
+      <div class="ad-meta">
+        <div class="ad-name" title="Problem/Symptom Call-Out - Copy">Problem/Symptom Call-Out - Copy</div>
+        <div class="ad-campaign" title="ASC | Prospecting | Winners">ASC | Prospecting | Winners</div>
+        <div class="ad-stats">
+          <div class="ad-roas ok">1.72x</div>
+          <div class="ad-secondary">
+            <span>$1,576.55 spend</span>
+            <span>30 purch</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+
+    <div class="ad-card" data-id="120241873256340479" data-name="GHK-Cu: Trichologist Recommended Hair Restoration | Home Page - Copy" data-title="GHK-Cu: Trichologist Recommended Hair Restoration" data-body="GHK-Cu is one of the most researched copper peptides in hair science-shown to support healthier follicles, stronger strands, and visible regrowth. This is peptide technology working at the scalp level, not a surface fix." data-thumb="https://scontent-dfw6-1.xx.fbcdn.net/v/t15.5256-10/643636288_3096918970495925_3513495506271837851_n.jpg?_nc_cat=102&amp;ccb=1-7&amp;_nc_ohc=r42cACmU3KcQ7kNvwFnBK9S&amp;_nc_oc=Adoll3sDGZBXQErUklfGUsKmEZfWE_AKTVIMUGb-SbY5zX17kfT72Z3FeaJ7PxFzQJE&amp;_nc_zt=23&amp;_nc_ht=scontent-dfw6-1.xx&amp;edm=AAT1rw8EAAAA&amp;_nc_gid=_w5pxx571P0Oxek0lu4NLg&amp;_nc_tpa=Q5bMBQFHShYJzYGzTskF_ZEwBerCtOPuLGidjI26DWToZDzkZ517zrRu3I8LiMK-Nr-WGrhdI-yeN-Rn&amp;stp=c0.5000x0.5000f_dst-emg0_p64x64_q75_tt6&amp;ur=b696e2&amp;_nc_sid=58080a&amp;oh=00_Af6cdUErPnGpgYTcpvt2zdjJU3t3BcfiuI_LIMFEKzHEjg&amp;oe=6A1270FB" data-fb="https://www.facebook.com/317231758141291/posts/122198040452337712" data-campaign="CBO | Tiktok Rip Winners | Group 3" data-spend="1573.93" data-revenue="1081.30" data-roas="0.687" data-purchases="24" data-impressions="17683" data-clicks="1096" data-ctr="6.20" data-cpa="65.58">
+      <div class="ad-rank">#29</div>
+      <div class="ad-thumb"><img src="https://scontent-dfw6-1.xx.fbcdn.net/v/t15.5256-10/643636288_3096918970495925_3513495506271837851_n.jpg?_nc_cat=102&amp;ccb=1-7&amp;_nc_ohc=r42cACmU3KcQ7kNvwFnBK9S&amp;_nc_oc=Adoll3sDGZBXQErUklfGUsKmEZfWE_AKTVIMUGb-SbY5zX17kfT72Z3FeaJ7PxFzQJE&amp;_nc_zt=23&amp;_nc_ht=scontent-dfw6-1.xx&amp;edm=AAT1rw8EAAAA&amp;_nc_gid=_w5pxx571P0Oxek0lu4NLg&amp;_nc_tpa=Q5bMBQFHShYJzYGzTskF_ZEwBerCtOPuLGidjI26DWToZDzkZ517zrRu3I8LiMK-Nr-WGrhdI-yeN-Rn&amp;stp=c0.5000x0.5000f_dst-emg0_p64x64_q75_tt6&amp;ur=b696e2&amp;_nc_sid=58080a&amp;oh=00_Af6cdUErPnGpgYTcpvt2zdjJU3t3BcfiuI_LIMFEKzHEjg&amp;oe=6A1270FB" loading="lazy" alt="" /><div class="ad-video-badge">▶ Video</div></div>
+      <div class="ad-meta">
+        <div class="ad-name" title="GHK-Cu: Trichologist Recommended Hair Restoration | Home Page - Copy">GHK-Cu: Trichologist Recommended Hair Restoration | Home Page - Copy</div>
+        <div class="ad-campaign" title="CBO | Tiktok Rip Winners | Group 3">CBO | Tiktok Rip Winners | Group 3</div>
+        <div class="ad-stats">
+          <div class="ad-roas warn">0.69x</div>
+          <div class="ad-secondary">
+            <span>$1,573.93 spend</span>
+            <span>24 purch</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+
+    <div class="ad-card" data-id="120234679744220479" data-name="Ad 1 - Group 1 - Copy" data-title="Why Peptides Win" data-body="Fewer side effects. Real results. This breakthrough has thousands making the switch." data-thumb="https://scontent-dfw5-1.xx.fbcdn.net/v/t45.1600-4/531700453_10228945550332180_781712725725055640_n.png?_nc_cat=105&amp;ccb=1-7&amp;_nc_ohc=1SJqZo9GWHwQ7kNvwHJQro8&amp;_nc_oc=Adq6WiZXznY_QEf5cpkuGzln7xnjUnUSw9kcCS2a1XdlOfT4httgMlQQ5ZcrkGn4TUI&amp;_nc_zt=1&amp;_nc_ht=scontent-dfw5-1.xx&amp;edm=AAT1rw8EAAAA&amp;_nc_gid=C6e_a-JxEoy92Y1pxn4Qyg&amp;_nc_tpa=Q5bMBQGhzjZ8WpRzltzkReeZc0fSiPA_ReDf4Ois-FMYfkjtotfkHUgfwbLrQkTRymJrWAaSLM16KkX_&amp;stp=c0.5000x0.5000f_dst-emg0_p64x64_q75_tt6&amp;ur=52f3c4&amp;_nc_sid=58080a&amp;oh=00_Af5j-HDQCuMtw5xaqYQlLZjQCX7ZMPaiaP1V0RdmNIt7zQ&amp;oe=6A1251CA" data-fb="https://www.facebook.com/317231758141291/posts/122190575570337712" data-campaign="ASC | Prospecting | Winners" data-spend="1571.74" data-revenue="1545.23" data-roas="0.983" data-purchases="36" data-impressions="14839" data-clicks="1495" data-ctr="10.07" data-cpa="43.66">
+      <div class="ad-rank">#30</div>
+      <div class="ad-thumb"><img src="https://scontent-dfw5-1.xx.fbcdn.net/v/t45.1600-4/531700453_10228945550332180_781712725725055640_n.png?_nc_cat=105&amp;ccb=1-7&amp;_nc_ohc=1SJqZo9GWHwQ7kNvwHJQro8&amp;_nc_oc=Adq6WiZXznY_QEf5cpkuGzln7xnjUnUSw9kcCS2a1XdlOfT4httgMlQQ5ZcrkGn4TUI&amp;_nc_zt=1&amp;_nc_ht=scontent-dfw5-1.xx&amp;edm=AAT1rw8EAAAA&amp;_nc_gid=C6e_a-JxEoy92Y1pxn4Qyg&amp;_nc_tpa=Q5bMBQGhzjZ8WpRzltzkReeZc0fSiPA_ReDf4Ois-FMYfkjtotfkHUgfwbLrQkTRymJrWAaSLM16KkX_&amp;stp=c0.5000x0.5000f_dst-emg0_p64x64_q75_tt6&amp;ur=52f3c4&amp;_nc_sid=58080a&amp;oh=00_Af5j-HDQCuMtw5xaqYQlLZjQCX7ZMPaiaP1V0RdmNIt7zQ&amp;oe=6A1251CA" loading="lazy" alt="" /></div>
+      <div class="ad-meta">
+        <div class="ad-name" title="Ad 1 - Group 1 - Copy">Ad 1 - Group 1 - Copy</div>
+        <div class="ad-campaign" title="ASC | Prospecting | Winners">ASC | Prospecting | Winners</div>
+        <div class="ad-stats">
+          <div class="ad-roas warn">0.98x</div>
+          <div class="ad-secondary">
+            <span>$1,571.74 spend</span>
+            <span>36 purch</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    </div>
+  </section>
+        
+
+  <section>
+    <h2>Spend vs. Revenue (Top 15 by Spend)</h2>
+    <div class="panel">
+      <div class="chart-wrap"><canvas id="spendChart"></canvas></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>All Campaigns</h2>
+    <input type="text" class="search" id="search" placeholder="Filter campaigns…" />
+    <table id="campaigns">
+      <thead>
+        <tr>
+          <th data-key="name">Campaign</th>
+          <th data-key="status">Status</th>
+          <th class="num" data-key="spend">Spend</th>
+          <th class="num" data-key="impressions">Impr.</th>
+          <th class="num" data-key="clicks">Clicks</th>
+          <th class="num" data-key="ctr">CTR</th>
+          <th class="num" data-key="cpc">CPC</th>
+          <th class="num" data-key="purchases">Purch.</th>
+          <th class="num" data-key="revenue">Revenue</th>
+          <th class="num" data-key="roas">ROAS</th>
+          <th class="num" data-key="cpa">CPA</th>
+          <th class="num" data-key="budget">Daily Budget</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td class="name" title="120240367406930479">CBO | Tiktok Rip Winners | Group 1</td><td><span class="badge muted">PAUSED</span></td><td class='num'>$3,101.11</td><td class='num'>56,831</td><td class='num'>4,271</td><td class='num'>7.52%</td><td class='num'>$0.73</td><td class='num'>44</td><td class='num'>$3,241.70</td><td class='num roas'>1.05x</td><td class='num'>$70.48</td><td class='num'>$500.00</td></tr>
+<tr><td class="name" title="120241872470790479">CBO | Tiktok Rip Winners | Group 3</td><td><span class="badge muted">PAUSED</span></td><td class='num'>$3,016.00</td><td class='num'>58,045</td><td class='num'>3,740</td><td class='num'>6.44%</td><td class='num'>$0.81</td><td class='num'>28</td><td class='num'>$2,194.40</td><td class='num roas'>0.73x</td><td class='num'>$107.71</td><td class='num'>$500.00</td></tr>
+<tr><td class="name" title="120241104242050479">CBO | Tiktok Rip Winners | Group 2</td><td><span class="badge muted">PAUSED</span></td><td class='num'>$0.00</td><td class='num'>0</td><td class='num'>0</td><td class='num'>0.00%</td><td class='num'>—</td><td class='num'>0</td><td class='num'>$0.00</td><td class='num roas'>—</td><td class='num'>—</td><td class='num'>$200.00</td></tr>
+<tr><td class="name" title="120241104667280479">CBO | Tiktok Rip Winners | Group 1 | Duplicate</td><td><span class="badge muted">PAUSED</span></td><td class='num'>$0.00</td><td class='num'>0</td><td class='num'>0</td><td class='num'>0.00%</td><td class='num'>—</td><td class='num'>0</td><td class='num'>$0.00</td><td class='num roas'>—</td><td class='num'>—</td><td class='num'>$400.00</td></tr>
+<tr><td class="name" title="120240798639210479">ABO | Test Tiktok Rips | 2.6.26</td><td><span class="badge muted">PAUSED</span></td><td class='num'>$0.00</td><td class='num'>0</td><td class='num'>0</td><td class='num'>0.00%</td><td class='num'>—</td><td class='num'>0</td><td class='num'>$0.00</td><td class='num roas'>—</td><td class='num'>—</td><td class='num'>—</td></tr>
+<tr><td class="name" title="120240371343960479">ABO | Identities | Pain Points | Bloom</td><td><span class="badge muted">PAUSED</span></td><td class='num'>$0.00</td><td class='num'>0</td><td class='num'>0</td><td class='num'>0.00%</td><td class='num'>—</td><td class='num'>0</td><td class='num'>$0.00</td><td class='num roas'>—</td><td class='num'>—</td><td class='num'>—</td></tr>
+<tr><td class="name" title="120240152108950479">ABO | Test Tiktok Rips | Group_1_Copy_2 | 12.27.2025</td><td><span class="badge muted">PAUSED</span></td><td class='num'>$0.00</td><td class='num'>0</td><td class='num'>0</td><td class='num'>0.00%</td><td class='num'>—</td><td class='num'>0</td><td class='num'>$0.00</td><td class='num roas'>—</td><td class='num'>—</td><td class='num'>—</td></tr>
+<tr><td class="name" title="120240151781570479">ABO | Test Tiktok Rips | Group_2 Copy_3 | 1.19.2026</td><td><span class="badge muted">PAUSED</span></td><td class='num'>$0.00</td><td class='num'>0</td><td class='num'>0</td><td class='num'>0.00%</td><td class='num'>—</td><td class='num'>0</td><td class='num'>$0.00</td><td class='num roas'>—</td><td class='num'>—</td><td class='num'>—</td></tr>
+<tr><td class="name" title="120240151446480479">ABO | Test Tiktok Rips | Group_2 Copy_2 | 1.19.2026</td><td><span class="badge muted">PAUSED</span></td><td class='num'>$0.00</td><td class='num'>0</td><td class='num'>0</td><td class='num'>0.00%</td><td class='num'>—</td><td class='num'>0</td><td class='num'>$0.00</td><td class='num roas'>—</td><td class='num'>—</td><td class='num'>—</td></tr>
+<tr><td class="name" title="120239866250790479">ABO | Test Tiktok Rips | Group_2_Copy_1 | 1.19.2026</td><td><span class="badge muted">PAUSED</span></td><td class='num'>$0.00</td><td class='num'>0</td><td class='num'>0</td><td class='num'>0.00%</td><td class='num'>—</td><td class='num'>0</td><td class='num'>$0.00</td><td class='num roas'>—</td><td class='num'>—</td><td class='num'>—</td></tr>
+<tr><td class="name" title="120239669298190479">CBO | Test Tiktok Rips | Group_1 | 12.27.2025</td><td><span class="badge muted">PAUSED</span></td><td class='num'>$0.00</td><td class='num'>0</td><td class='num'>0</td><td class='num'>0.00%</td><td class='num'>—</td><td class='num'>0</td><td class='num'>$0.00</td><td class='num roas'>—</td><td class='num'>—</td><td class='num'>$100.00</td></tr>
+<tr><td class="name" title="120239445161130479">ABO | Test Tiktok Rips | Group_1_Copy_1 | 12.27.2025</td><td><span class="badge muted">PAUSED</span></td><td class='num'>$0.00</td><td class='num'>0</td><td class='num'>0</td><td class='num'>0.00%</td><td class='num'>—</td><td class='num'>0</td><td class='num'>$0.00</td><td class='num roas'>—</td><td class='num'>—</td><td class='num'>—</td></tr>
+<tr><td class="name" title="120239372358630479">CBO | Winners | 12.25.25</td><td><span class="badge muted">PAUSED</span></td><td class='num'>$0.00</td><td class='num'>0</td><td class='num'>0</td><td class='num'>0.00%</td><td class='num'>—</td><td class='num'>0</td><td class='num'>$0.00</td><td class='num roas'>—</td><td class='num'>—</td><td class='num'>$66.55</td></tr>
+<tr><td class="name" title="120237831300450479">Nov 28th Group | CBO</td><td><span class="badge muted">PAUSED</span></td><td class='num'>$0.00</td><td class='num'>0</td><td class='num'>0</td><td class='num'>0.00%</td><td class='num'>—</td><td class='num'>0</td><td class='num'>$0.00</td><td class='num roas'>—</td><td class='num'>—</td><td class='num'>$300.00</td></tr>
+<tr><td class="name" title="120237881315950479">Black Friday | Last Chance</td><td><span class="badge muted">PAUSED</span></td><td class='num'>$0.00</td><td class='num'>0</td><td class='num'>0</td><td class='num'>0.00%</td><td class='num'>—</td><td class='num'>0</td><td class='num'>$0.00</td><td class='num roas'>—</td><td class='num'>—</td><td class='num'>$200.00</td></tr>
+<tr><td class="name" title="120237845890420479">Cyber Monday | Group</td><td><span class="badge muted">PAUSED</span></td><td class='num'>$0.00</td><td class='num'>0</td><td class='num'>0</td><td class='num'>0.00%</td><td class='num'>—</td><td class='num'>0</td><td class='num'>$0.00</td><td class='num roas'>—</td><td class='num'>—</td><td class='num'>$250.00</td></tr>
+<tr><td class="name" title="120237803548840479">Black Friday | Series 15</td><td><span class="badge muted">PAUSED</span></td><td class='num'>$0.00</td><td class='num'>0</td><td class='num'>0</td><td class='num'>0.00%</td><td class='num'>—</td><td class='num'>0</td><td class='num'>$0.00</td><td class='num roas'>—</td><td class='num'>—</td><td class='num'>$100.00</td></tr>
+<tr><td class="name" title="120237802694470479">Black Friday | Series 14</td><td><span class="badge muted">PAUSED</span></td><td class='num'>$0.00</td><td class='num'>0</td><td class='num'>0</td><td class='num'>0.00%</td><td class='num'>—</td><td class='num'>0</td><td class='num'>$0.00</td><td class='num roas'>—</td><td class='num'>—</td><td class='num'>$200.00</td></tr>
+<tr><td class="name" title="120237802232350479">Black Friday | Series 13</td><td><span class="badge muted">PAUSED</span></td><td class='num'>$0.00</td><td class='num'>0</td><td class='num'>0</td><td class='num'>0.00%</td><td class='num'>—</td><td class='num'>0</td><td class='num'>$0.00</td><td class='num roas'>—</td><td class='num'>—</td><td class='num'>$100.00</td></tr>
+<tr><td class="name" title="120237802113320479">Black Friday | Series 12</td><td><span class="badge muted">PAUSED</span></td><td class='num'>$0.00</td><td class='num'>0</td><td class='num'>0</td><td class='num'>0.00%</td><td class='num'>—</td><td class='num'>0</td><td class='num'>$0.00</td><td class='num roas'>—</td><td class='num'>—</td><td class='num'>$100.00</td></tr>
+<tr><td class="name" title="120237802011200479">Black Friday | Series 11</td><td><span class="badge muted">PAUSED</span></td><td class='num'>$0.00</td><td class='num'>0</td><td class='num'>0</td><td class='num'>0.00%</td><td class='num'>—</td><td class='num'>0</td><td class='num'>$0.00</td><td class='num roas'>—</td><td class='num'>—</td><td class='num'>$100.00</td></tr>
+<tr><td class="name" title="120237801437860479">Black Friday | Series 10</td><td><span class="badge muted">PAUSED</span></td><td class='num'>$0.00</td><td class='num'>0</td><td class='num'>0</td><td class='num'>0.00%</td><td class='num'>—</td><td class='num'>0</td><td class='num'>$0.00</td><td class='num roas'>—</td><td class='num'>—</td><td class='num'>$100.00</td></tr>
+<tr><td class="name" title="120237800723230479">Black Friday | Series 9</td><td><span class="badge muted">PAUSED</span></td><td class='num'>$0.00</td><td class='num'>0</td><td class='num'>0</td><td class='num'>0.00%</td><td class='num'>—</td><td class='num'>0</td><td class='num'>$0.00</td><td class='num roas'>—</td><td class='num'>—</td><td class='num'>$100.00</td></tr>
+<tr><td class="name" title="120237800520800479">Black Friday | Series 8</td><td><span class="badge muted">PAUSED</span></td><td class='num'>$0.00</td><td class='num'>0</td><td class='num'>0</td><td class='num'>0.00%</td><td class='num'>—</td><td class='num'>0</td><td class='num'>$0.00</td><td class='num roas'>—</td><td class='num'>—</td><td class='num'>$200.00</td></tr>
+<tr><td class="name" title="120237800220640479">Black Friday | Series 7</td><td><span class="badge muted">PAUSED</span></td><td class='num'>$0.00</td><td class='num'>0</td><td class='num'>0</td><td class='num'>0.00%</td><td class='num'>—</td><td class='num'>0</td><td class='num'>$0.00</td><td class='num roas'>—</td><td class='num'>—</td><td class='num'>$100.00</td></tr>
+<tr><td class="name" title="120237799943860479">Black Friday | Series 5</td><td><span class="badge muted">PAUSED</span></td><td class='num'>$0.00</td><td class='num'>0</td><td class='num'>0</td><td class='num'>0.00%</td><td class='num'>—</td><td class='num'>0</td><td class='num'>$0.00</td><td class='num roas'>—</td><td class='num'>—</td><td class='num'>$100.00</td></tr>
+<tr><td class="name" title="120237799953400479">Black Friday | Series 6</td><td><span class="badge muted">PAUSED</span></td><td class='num'>$0.00</td><td class='num'>0</td><td class='num'>0</td><td class='num'>0.00%</td><td class='num'>—</td><td class='num'>0</td><td class='num'>$0.00</td><td class='num roas'>—</td><td class='num'>—</td><td class='num'>$100.00</td></tr>
+<tr><td class="name" title="120237797644530479">Black Friday | Series 3</td><td><span class="badge muted">PAUSED</span></td><td class='num'>$0.00</td><td class='num'>0</td><td class='num'>0</td><td class='num'>0.00%</td><td class='num'>—</td><td class='num'>0</td><td class='num'>$0.00</td><td class='num roas'>—</td><td class='num'>—</td><td class='num'>$100.00</td></tr>
+<tr><td class="name" title="120237798457880479">Black Friday | Series 4</td><td><span class="badge muted">PAUSED</span></td><td class='num'>$0.00</td><td class='num'>0</td><td class='num'>0</td><td class='num'>0.00%</td><td class='num'>—</td><td class='num'>0</td><td class='num'>$0.00</td><td class='num roas'>—</td><td class='num'>—</td><td class='num'>$100.00</td></tr>
+<tr><td class="name" title="120237589597500479">Trent Holiday Gifts + Wrapping Elements</td><td><span class="badge muted">PAUSED</span></td><td class='num'>$0.00</td><td class='num'>0</td><td class='num'>0</td><td class='num'>0.00%</td><td class='num'>—</td><td class='num'>0</td><td class='num'>$0.00</td><td class='num roas'>—</td><td class='num'>—</td><td class='num'>$50.00</td></tr>
+<tr><td class="name" title="120237688554880479">Black Friday | Series 2</td><td><span class="badge muted">PAUSED</span></td><td class='num'>$0.00</td><td class='num'>0</td><td class='num'>0</td><td class='num'>0.00%</td><td class='num'>—</td><td class='num'>0</td><td class='num'>$0.00</td><td class='num roas'>—</td><td class='num'>—</td><td class='num'>$200.00</td></tr>
+<tr><td class="name" title="120236826441660479">Testing Campaign | ABO</td><td><span class="badge muted">PAUSED</span></td><td class='num'>$0.00</td><td class='num'>0</td><td class='num'>0</td><td class='num'>0.00%</td><td class='num'>—</td><td class='num'>0</td><td class='num'>$0.00</td><td class='num roas'>—</td><td class='num'>—</td><td class='num'>—</td></tr>
+<tr><td class="name" title="120237039853920479">Testing | CBO</td><td><span class="badge muted">PAUSED</span></td><td class='num'>$0.00</td><td class='num'>0</td><td class='num'>0</td><td class='num'>0.00%</td><td class='num'>—</td><td class='num'>0</td><td class='num'>$0.00</td><td class='num roas'>—</td><td class='num'>—</td><td class='num'>$50.00</td></tr>
+<tr><td class="name" title="120236722045510479">Scaling Campaign | CBO</td><td><span class="badge muted">PAUSED</span></td><td class='num'>$0.00</td><td class='num'>0</td><td class='num'>0</td><td class='num'>0.00%</td><td class='num'>—</td><td class='num'>0</td><td class='num'>$0.00</td><td class='num roas'>—</td><td class='num'>—</td><td class='num'>$200.00</td></tr>
+<tr><td class="name" title="120236722045470479">Testing Campaign - Copy</td><td><span class="badge muted">PAUSED</span></td><td class='num'>$0.00</td><td class='num'>0</td><td class='num'>0</td><td class='num'>0.00%</td><td class='num'>—</td><td class='num'>0</td><td class='num'>$0.00</td><td class='num roas'>—</td><td class='num'>—</td><td class='num'>$200.00</td></tr>
+<tr><td class="name" title="120236615986730479">Scaling Campaign</td><td><span class="badge muted">PAUSED</span></td><td class='num'>$0.00</td><td class='num'>0</td><td class='num'>0</td><td class='num'>0.00%</td><td class='num'>—</td><td class='num'>0</td><td class='num'>$0.00</td><td class='num roas'>—</td><td class='num'>—</td><td class='num'>$300.00</td></tr>
+<tr><td class="name" title="120236620916710479">Testing Campaign</td><td><span class="badge muted">PAUSED</span></td><td class='num'>$0.00</td><td class='num'>0</td><td class='num'>0</td><td class='num'>0.00%</td><td class='num'>—</td><td class='num'>0</td><td class='num'>$0.00</td><td class='num roas'>—</td><td class='num'>—</td><td class='num'>$242.55</td></tr>
+<tr><td class="name" title="120236118855820479">T1 | Prospecting | Advertorial VSL  Tests | CBO</td><td><span class="badge muted">PAUSED</span></td><td class='num'>$0.00</td><td class='num'>0</td><td class='num'>0</td><td class='num'>0.00%</td><td class='num'>—</td><td class='num'>0</td><td class='num'>$0.00</td><td class='num roas'>—</td><td class='num'>—</td><td class='num'>$150.00</td></tr>
+<tr><td class="name" title="120235842486830479">T1 | Prospecting | Listicles | ASC</td><td><span class="badge muted">PAUSED</span></td><td class='num'>$0.00</td><td class='num'>0</td><td class='num'>0</td><td class='num'>0.00%</td><td class='num'>—</td><td class='num'>0</td><td class='num'>$0.00</td><td class='num roas'>—</td><td class='num'>—</td><td class='num'>$180.00</td></tr>
+<tr><td class="name" title="120234680530190479">T1 | Prospecting | General Tests | ABO</td><td><span class="badge muted">PAUSED</span></td><td class='num'>$0.00</td><td class='num'>0</td><td class='num'>0</td><td class='num'>0.00%</td><td class='num'>—</td><td class='num'>0</td><td class='num'>$0.00</td><td class='num roas'>—</td><td class='num'>—</td><td class='num'>—</td></tr>
+<tr><td class="name" title="120232654583660479">ASC | Prospecting | Winners</td><td><span class="badge muted">PAUSED</span></td><td class='num'>$0.00</td><td class='num'>0</td><td class='num'>0</td><td class='num'>0.00%</td><td class='num'>—</td><td class='num'>0</td><td class='num'>$0.00</td><td class='num roas'>—</td><td class='num'>—</td><td class='num'>$100.00</td></tr>
+<tr><td class="name" title="120231165842730479">T1 | Prospecting | Celebrity Listicle Test | CBO</td><td><span class="badge muted">PAUSED</span></td><td class='num'>$0.00</td><td class='num'>0</td><td class='num'>0</td><td class='num'>0.00%</td><td class='num'>—</td><td class='num'>0</td><td class='num'>$0.00</td><td class='num roas'>—</td><td class='num'>—</td><td class='num'>$150.00</td></tr>
+<tr><td class="name" title="120230759144230479">T2 | Retargeting | Cart Recovery Test | ABO</td><td><span class="badge muted">PAUSED</span></td><td class='num'>$0.00</td><td class='num'>0</td><td class='num'>0</td><td class='num'>0.00%</td><td class='num'>—</td><td class='num'>0</td><td class='num'>$0.00</td><td class='num roas'>—</td><td class='num'>—</td><td class='num'>—</td></tr>
+<tr><td class="name" title="120232607480930479">T1.5 | Nurturing | ABO</td><td><span class="badge muted">PAUSED</span></td><td class='num'>$0.00</td><td class='num'>0</td><td class='num'>0</td><td class='num'>0.00%</td><td class='num'>—</td><td class='num'>0</td><td class='num'>$0.00</td><td class='num roas'>—</td><td class='num'>—</td><td class='num'>—</td></tr>
+<tr><td class="name" title="120230594628860479">T1 | Prospecting | Celebrity Listicle Test | ABO</td><td><span class="badge muted">PAUSED</span></td><td class='num'>$0.00</td><td class='num'>0</td><td class='num'>0</td><td class='num'>0.00%</td><td class='num'>—</td><td class='num'>0</td><td class='num'>$0.00</td><td class='num roas'>—</td><td class='num'>—</td><td class='num'>—</td></tr>
+<tr><td class="name" title="120230465541690479">T1 | Prospecting | Advertorial VSL  Tests | ABO</td><td><span class="badge muted">PAUSED</span></td><td class='num'>$0.00</td><td class='num'>0</td><td class='num'>0</td><td class='num'>0.00%</td><td class='num'>—</td><td class='num'>0</td><td class='num'>$0.00</td><td class='num roas'>—</td><td class='num'>—</td><td class='num'>—</td></tr>
+      </tbody>
+    </table>
+  </section>
+</main>
+
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <div class="modal-media" id="modalMedia">
+      <button class="modal-close" id="modalClose">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-title" id="mTitle"></div>
+      <h3 id="mName"></h3>
+      <div class="modal-copy" id="mBody" style="display:none"></div>
+      <div class="modal-stats">
+        <div class="modal-stat"><div class="label">ROAS</div><div class="value" id="mRoas"></div></div>
+        <div class="modal-stat"><div class="label">Spend</div><div class="value" id="mSpend"></div></div>
+        <div class="modal-stat"><div class="label">Revenue</div><div class="value" id="mRevenue"></div></div>
+        <div class="modal-stat"><div class="label">Purchases</div><div class="value" id="mPurch"></div></div>
+        <div class="modal-stat"><div class="label">Clicks / CTR</div><div class="value" id="mClicks"></div></div>
+        <div class="modal-stat"><div class="label">CPA</div><div class="value" id="mCpa"></div></div>
+      </div>
+      <div style="font-size:11px;color:var(--muted)">Campaign: <span id="mCampaign"></span></div>
+      <div class="modal-actions">
+        <a href="#" id="mFb" target="_blank" rel="noopener">View on Facebook</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const ctx = document.getElementById('spendChart').getContext('2d');
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: ["CBO | Tiktok Rip Winners | Group 3", "CBO | Tiktok Rip Winners | Group 1"],
+      datasets: [
+        { label: 'Spend', data: [3016.0, 3101.11], backgroundColor: '#5b8def' },
+        { label: 'Revenue', data: [2194.4, 3241.7], backgroundColor: '#36c98b' }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { color: '#e6ecf5' } } },
+      scales: {
+        x: { ticks: { color: '#8a98b2', maxRotation: 60, minRotation: 45 }, grid: { color: '#243049' } },
+        y: { ticks: { color: '#8a98b2', callback: v => '$' + v.toLocaleString() }, grid: { color: '#243049' } }
+      }
+    }
+  });
+
+  // Search filter
+  const search = document.getElementById('search');
+  const tbody = document.querySelector('#campaigns tbody');
+  search.addEventListener('input', () => {
+    const q = search.value.toLowerCase();
+    [...tbody.rows].forEach(r => {
+      r.style.display = r.cells[0].textContent.toLowerCase().includes(q) ? '' : 'none';
+    });
+  });
+
+  // Sortable columns
+  document.querySelectorAll('th[data-key]').forEach((th, idx) => {
+    let asc = false;
+    th.addEventListener('click', () => {
+      asc = !asc;
+      const rows = [...tbody.rows];
+      const numeric = th.classList.contains('num');
+      rows.sort((a, b) => {
+        const av = a.cells[idx].textContent.replace(/[$,x%]/g, '').trim();
+        const bv = b.cells[idx].textContent.replace(/[$,x%]/g, '').trim();
+        if (numeric) {
+          const an = parseFloat(av) || 0, bn = parseFloat(bv) || 0;
+          return asc ? an - bn : bn - an;
+        }
+        return asc ? av.localeCompare(bv) : bv.localeCompare(av);
+      });
+      rows.forEach(r => tbody.appendChild(r));
+    });
+  });
+
+  // Ad search
+  const adSearch = document.getElementById('adSearch');
+  if (adSearch) {
+    const cards = document.querySelectorAll('#adGrid .ad-card');
+    adSearch.addEventListener('input', () => {
+      const q = adSearch.value.toLowerCase();
+      cards.forEach(c => {
+        const text = (c.dataset.name + ' ' + c.dataset.campaign + ' ' + c.dataset.title + ' ' + c.dataset.body).toLowerCase();
+        c.style.display = text.includes(q) ? '' : 'none';
+      });
+    });
+  }
+
+  // Modal
+  const modal = document.getElementById('modal');
+  const modalMedia = document.getElementById('modalMedia');
+  const fmtMoney = v => '$' + Number(v).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+  const fmtInt = v => Number(v).toLocaleString();
+
+  document.querySelectorAll('.ad-card').forEach(card => {
+    card.addEventListener('click', () => {
+      const d = card.dataset;
+      document.getElementById('mName').textContent = d.name || '(unnamed)';
+      document.getElementById('mTitle').textContent = d.title || '';
+      const body = document.getElementById('mBody');
+      if (d.body) { body.textContent = d.body; body.style.display = 'block'; }
+      else { body.style.display = 'none'; }
+      const roas = parseFloat(d.roas) || 0;
+      document.getElementById('mRoas').textContent = roas > 0 ? roas.toFixed(2) + 'x' : '—';
+      document.getElementById('mSpend').textContent = fmtMoney(d.spend);
+      document.getElementById('mRevenue').textContent = fmtMoney(d.revenue);
+      document.getElementById('mPurch').textContent = fmtInt(d.purchases);
+      document.getElementById('mClicks').textContent = fmtInt(d.clicks) + ' · ' + Number(d.ctr).toFixed(2) + '%';
+      const cpa = parseFloat(d.cpa) || 0;
+      document.getElementById('mCpa').textContent = cpa > 0 ? fmtMoney(cpa) : '—';
+      document.getElementById('mCampaign').textContent = d.campaign;
+      const fb = document.getElementById('mFb');
+      if (d.fb) { fb.href = d.fb; fb.style.display = 'inline-block'; } else { fb.style.display = 'none'; }
+
+      // Media: use thumbnail. (Video source URLs require extra API calls; we link to FB instead.)
+      modalMedia.querySelectorAll('img,video').forEach(n => n.remove());
+      if (d.thumb) {
+        const img = document.createElement('img');
+        img.src = d.thumb;
+        modalMedia.appendChild(img);
+      }
+      modal.classList.add('open');
+    });
+  });
+  document.getElementById('modalClose').addEventListener('click', () => modal.classList.remove('open'));
+  modal.addEventListener('click', e => { if (e.target === modal) modal.classList.remove('open'); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') modal.classList.remove('open'); });
+
+  // ------- Refresh button (only active when served by server.py) -------
+  const btn = document.getElementById('refreshBtn');
+  const statusEl = document.getElementById('refreshStatus');
+  const toast = document.getElementById('refreshToast');
+  const label = btn.querySelector('.label');
+  let pollTimer = null;
+  let countdownTimer = null;
+  let initialMtime = null;
+
+  const showToast = (msg, kind = '') => {
+    toast.textContent = msg;
+    toast.className = 'refresh-toast show ' + kind;
+    clearTimeout(toast._t);
+    toast._t = setTimeout(() => toast.classList.remove('show'), 4500);
+  };
+
+  const relTime = (ts) => {
+    if (!ts) return '';
+    const s = Math.max(0, Math.floor(Date.now() / 1000 - ts));
+    if (s < 60) return s + 's ago';
+    if (s < 3600) return Math.floor(s / 60) + 'm ago';
+    return Math.floor(s / 3600) + 'h ago';
+  };
+
+  const setRunning = (running) => {
+    btn.classList.toggle('is-running', running);
+    btn.disabled = running;
+    label.textContent = running ? 'Refreshing…' : 'Refresh';
+  };
+
+  const setCooldown = (remaining) => {
+    clearInterval(countdownTimer);
+    if (remaining <= 0) {
+      btn.disabled = false;
+      label.textContent = 'Refresh';
+      return;
+    }
+    btn.disabled = true;
+    let r = remaining;
+    const tick = () => {
+      label.textContent = `Wait ${r}s`;
+      if (--r < 0) { clearInterval(countdownTimer); btn.disabled = false; label.textContent = 'Refresh'; }
+    };
+    tick();
+    countdownTimer = setInterval(tick, 1000);
+  };
+
+  const applyStatus = (s, fromRefresh = false) => {
+    if (s.last_finished) {
+      statusEl.classList.toggle('error', !!s.last_error);
+      statusEl.textContent = s.last_error
+        ? `Last refresh failed (${relTime(s.last_finished)})`
+        : `Refreshed ${relTime(s.last_finished)}`;
+    }
+    if (s.running) {
+      setRunning(true);
+      const elapsed = s.last_started ? Math.floor(s.now - s.last_started) : 0;
+      label.textContent = `Refreshing… ${elapsed}s`;
+      return;
+    }
+    setRunning(false);
+    if (s.cooldown_remaining > 0) setCooldown(s.cooldown_remaining);
+    if (fromRefresh && !s.last_error && s.html_mtime && initialMtime && s.html_mtime > initialMtime) {
+      showToast('Dashboard refreshed — reloading…', '');
+      setTimeout(() => location.reload(), 700);
+    } else if (fromRefresh && s.last_error) {
+      showToast('Refresh failed: ' + s.last_error.split('\n').pop(), 'bad');
+    }
+  };
+
+  const poll = (fromRefresh = false) => {
+    fetch('/api/status', { cache: 'no-store' })
+      .then(r => r.json())
+      .then(s => {
+        if (initialMtime === null) initialMtime = s.html_mtime;
+        applyStatus(s, fromRefresh);
+        if (s.running) {
+          clearTimeout(pollTimer);
+          pollTimer = setTimeout(() => poll(true), 2500);
+        }
+      })
+      .catch(() => {});
+  };
+
+  // Probe server availability; if absent (file://), keep button hidden.
+  fetch('/api/status', { cache: 'no-store' }).then(r => {
+    if (!r.ok) throw new Error('no api');
+    return r.json();
+  }).then(s => {
+    btn.style.display = 'inline-flex';
+    initialMtime = s.html_mtime;
+    applyStatus(s);
+    // Background ticker to keep "Refreshed Xm ago" fresh
+    setInterval(() => {
+      if (!btn.classList.contains('is-running') && s.last_finished) {
+        statusEl.textContent = s.last_error
+          ? `Last refresh failed (${relTime(s.last_finished)})`
+          : `Refreshed ${relTime(s.last_finished)}`;
+      }
+    }, 15000);
+  }).catch(() => { /* served as file:// — button stays hidden */ });
+
+  btn.addEventListener('click', () => {
+    if (btn.disabled) return;
+    setRunning(true);
+    label.textContent = 'Starting…';
+    fetch('/api/refresh', { method: 'POST' })
+      .then(r => r.json().then(j => ({ ok: r.ok, status: r.status, body: j })))
+      .then(({ ok, status, body }) => {
+        if (status === 429) {
+          showToast(body.message || 'Cooldown active', 'warn');
+          setRunning(false);
+          setCooldown(body.cooldown_remaining || 0);
+          return;
+        }
+        if (status === 202) {
+          showToast(body.status === 'running' ? 'Already refreshing…' : 'Refresh started', '');
+          poll(true);
+          return;
+        }
+        showToast('Unexpected response (' + status + ')', 'bad');
+        setRunning(false);
+      })
+      .catch(err => {
+        showToast('Refresh request failed: ' + err.message, 'bad');
+        setRunning(false);
+      });
+  });
+</script>
+</body>
+</html>
