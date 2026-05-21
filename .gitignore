@@ -6,6 +6,12 @@
 # Local caches
 .cache/
 
+# Editor swap/temp files
+*.swp
+*.swo
+*~
+.DS_Store
+
 # Editor / tooling state
 .claude/
 .vscode/
