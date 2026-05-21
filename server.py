@@ -184,6 +184,26 @@ def tiktok_env_check():
     return jsonify({"missing": tiktok_ad.check_env()})
 
 
+@app.get("/api/diag")
+def diag():
+    """Runtime sanity check — confirms ffmpeg + Python version + env presence."""
+    import shutil as _shutil
+    import platform
+    return jsonify({
+        "python_version": platform.python_version(),
+        "platform": platform.platform(),
+        "ffmpeg_path": _shutil.which("ffmpeg"),
+        "ffprobe_path": _shutil.which("ffprobe"),
+        "path_env": os.environ.get("PATH", ""),
+        "env_present": {
+            k: bool(os.environ.get(k))
+            for k in ("ACCESS_TOKEN", "AD_ACCOUNT_ID", "PAGE_ID",
+                      "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "RAPIDAPI_KEY",
+                      "APP_USERNAME", "APP_PASSWORD", "SECRET_KEY")
+        },
+    })
+
+
 @app.get("/api/tiktok-ad/video/<job_id>")
 def tiktok_video_download(job_id: str):
     job = tiktok_jobs.get(job_id)
