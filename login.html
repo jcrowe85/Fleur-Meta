@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Sign in — Fleur Meta</title>
+<style>
+  :root {
+    --bg: #0f1115; --panel: #161a22; --border: #262c3a; --muted: #8a93a6;
+    --text: #e5e9f2; --accent: #4f8cff; --accent-2: #3a6fd9;
+    --err: #ef4e4e;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 14px/1.45 -apple-system, system-ui, "Segoe UI", sans-serif;
+    min-height: 100vh; display: grid; place-items: center;
+  }
+  .card {
+    width: 360px; max-width: calc(100vw - 32px);
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 10px; padding: 28px 26px;
+  }
+  h1 { margin: 0 0 4px; font-size: 18px; font-weight: 600; }
+  .sub { color: var(--muted); font-size: 12px; margin-bottom: 20px; }
+  label { display: block; font-size: 12px; color: var(--muted); margin: 12px 0 6px; }
+  input {
+    width: 100%; background: #0c0f15; color: var(--text);
+    border: 1px solid var(--border); border-radius: 6px;
+    padding: 10px 12px; font: inherit;
+  }
+  input:focus { outline: none; border-color: var(--accent); }
+  input.invalid { border-color: var(--err); }
+  button {
+    width: 100%; margin-top: 16px;
+    background: var(--accent); color: white; border: 0; border-radius: 6px;
+    padding: 11px; font: 600 14px inherit; cursor: pointer;
+  }
+  button:hover:not(:disabled) { background: var(--accent-2); }
+  button:disabled { background: #2a3142; color: #5d6478; cursor: not-allowed; }
+  #error {
+    display: none; margin-top: 14px;
+    background: rgba(239,78,78,0.08); border: 1px solid rgba(239,78,78,0.4);
+    color: var(--err); border-radius: 6px; padding: 9px 12px; font-size: 13px;
+  }
+  #error.show { display: block; }
+  .field-error { color: var(--err); font-size: 12px; margin-top: 4px; min-height: 14px; }
+</style>
+</head>
+<body>
+<form class="card" id="login-form" novalidate>
+  <h1>Sign in</h1>
+  <div class="sub">Fleur Meta — internal tool</div>
+
+  <label for="username">Username</label>
+  <input id="username" name="username" autocomplete="username" autofocus />
+  <div class="field-error" id="username-error"></div>
+
+  <label for="password">Password</label>
+  <input id="password" name="password" type="password" autocomplete="current-password" />
+  <div class="field-error" id="password-error"></div>
+
+  <button id="submit-btn" type="submit">Sign in</button>
+  <div id="error"></div>
+</form>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const params = new URLSearchParams(window.location.search);
+const next = params.get('next') || '/tiktok-ad';
+
+function setFieldError(id, msg) {
+  $(id + '-error').textContent = msg || '';
+  $(id).classList.toggle('invalid', !!msg);
+}
+function clearFieldErrors() {
+  setFieldError('username', '');
+  setFieldError('password', '');
+}
+function setBanner(msg) {
+  const el = $('error');
+  el.textContent = msg || '';
+  el.classList.toggle('show', !!msg);
+}
+
+$('login-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  clearFieldErrors();
+  setBanner('');
+  const username = $('username').value.trim();
+  const password = $('password').value;
+  let bad = false;
+  if (!username) { setFieldError('username', 'Required'); bad = true; }
+  if (!password) { setFieldError('password', 'Required'); bad = true; }
+  if (bad) return;
+
+  const btn = $('submit-btn');
+  btn.disabled = true;
+  const prev = btn.textContent;
+  btn.textContent = 'Signing in…';
+  try {
+    const r = await fetch('/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password }),
+    });
+    if (r.ok) {
+      window.location.href = next;
+      return;
+    }
+    const body = await r.json().catch(() => ({}));
+    setBanner(body.error || 'Login failed. Please try again.');
+    $('password').value = '';
+    $('password').focus();
+  } catch (err) {
+    setBanner('Network error. Please retry.');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = prev;
+  }
+});
+
+['username', 'password'].forEach(id => {
+  $(id).addEventListener('input', () => {
+    setFieldError(id, '');
+    setBanner('');
+  });
+});
+
+if (params.get('expired') === '1') {
+  setBanner('Your session expired. Please sign in again.');
+}
+</script>
+</body>
+</html>

@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import secrets
 import subprocess
 import sys
 import threading
@@ -19,11 +20,12 @@ import uuid
 from pathlib import Path
 
 from dotenv import load_dotenv
-from flask import Flask, Response, jsonify, request, send_file
+from flask import Flask, jsonify, redirect, request, send_file, session
 
 BASE = Path(__file__).parent.resolve()
 HTML = BASE / "dashboard.html"
 TIKTOK_HTML = BASE / "tiktok_ad.html"
+LOGIN_HTML = BASE / "login.html"
 SCRIPT = BASE / "dashboard.py"
 
 load_dotenv(BASE / ".env")
@@ -31,24 +33,28 @@ load_dotenv(BASE / ".env")
 import tiktok_ad  # noqa: E402  — must come after load_dotenv so env reads see the file
 
 app = Flask(__name__)
+app.secret_key = os.environ.get("SECRET_KEY") or secrets.token_hex(32)
+
+# Paths that bypass auth (login page itself + its API).
+_AUTH_EXEMPT = {"/login", "/api/login"}
+
+
+def _auth_required() -> bool:
+    return bool(os.environ.get("APP_USERNAME") and os.environ.get("APP_PASSWORD"))
 
 
 @app.before_request
-def _require_basic_auth():
-    """If APP_USERNAME + APP_PASSWORD are set in env, gate every route behind Basic Auth.
-    Local dev (no env vars set) stays open. Production sets both in Railway."""
-    user = os.environ.get("APP_USERNAME") or ""
-    pwd = os.environ.get("APP_PASSWORD") or ""
-    if not user or not pwd:
+def _require_session_auth():
+    if not _auth_required():
         return None
-    auth = request.authorization
-    if auth and auth.username == user and auth.password == pwd:
+    if request.path in _AUTH_EXEMPT:
         return None
-    return Response(
-        "Authentication required.",
-        401,
-        {"WWW-Authenticate": 'Basic realm="fleur-meta"'},
-    )
+    if session.get("authed"):
+        return None
+    if request.path.startswith("/api/"):
+        return jsonify({"error": "not authenticated"}), 401
+    target = request.full_path.rstrip("?") if request.query_string else request.path
+    return redirect(f"/login?next={target}")
 
 
 # job_id -> {"video_path": Path, "transcript": str, "primary_text": str, "headline": str, "description": str}
@@ -93,6 +99,49 @@ def run_generation() -> None:
         state["last_duration"] = time.time() - start
         state["last_finished"] = time.time()
         state["running"] = False
+
+
+@app.get("/login")
+def login_page():
+    if not _auth_required():
+        return redirect("/tiktok-ad")
+    if session.get("authed"):
+        return redirect(request.args.get("next") or "/tiktok-ad")
+    if not LOGIN_HTML.exists():
+        return "login.html missing", 500
+    return send_file(LOGIN_HTML, max_age=0)
+
+
+@app.post("/api/login")
+def login_submit():
+    body = request.get_json(silent=True) or {}
+    username = (body.get("username") or "").strip()
+    password = body.get("password") or ""
+    if not username or not password:
+        return jsonify({"error": "Username and password are required."}), 400
+    expected_user = os.environ.get("APP_USERNAME") or ""
+    expected_pwd = os.environ.get("APP_PASSWORD") or ""
+    if not expected_user or not expected_pwd:
+        return jsonify({"error": "Authentication is not configured on this server."}), 500
+    if not (secrets.compare_digest(username, expected_user)
+            and secrets.compare_digest(password, expected_pwd)):
+        return jsonify({"error": "Invalid username or password."}), 401
+    session.clear()
+    session["authed"] = True
+    session.permanent = False
+    return jsonify({"ok": True})
+
+
+@app.post("/api/logout")
+def logout():
+    session.clear()
+    return jsonify({"ok": True})
+
+
+@app.get("/logout")
+def logout_get():
+    session.clear()
+    return redirect("/login")
 
 
 @app.get("/")
