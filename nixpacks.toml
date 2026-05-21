@@ -1,0 +1,5 @@
+[phases.setup]
+nixPkgs = ["python311", "ffmpeg"]
+
+[start]
+cmd = "python3 server.py --host 0.0.0.0"

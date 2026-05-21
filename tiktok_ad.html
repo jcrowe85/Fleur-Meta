@@ -1,0 +1,506 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>TikTok → Meta Ad</title>
+<style>
+  :root {
+    --bg: #0f1115; --panel: #161a22; --border: #262c3a; --muted: #8a93a6;
+    --text: #e5e9f2; --accent: #4f8cff; --accent-2: #3a6fd9;
+    --ok: #2ec27e; --warn: #f0a420; --err: #ef4e4e;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 -apple-system, system-ui, "Segoe UI", sans-serif; }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 28px 20px 80px; }
+  header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 18px; }
+  h1 { margin: 0; font-size: 22px; font-weight: 600; }
+  header a { color: var(--muted); text-decoration: none; font-size: 13px; }
+  header a:hover { color: var(--text); }
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 18px; margin-bottom: 16px; }
+  .panel h2 { margin: 0 0 12px; font-size: 14px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+  label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+  input[type=text], input[type=url], textarea, select {
+    width: 100%; background: #0c0f15; color: var(--text); border: 1px solid var(--border);
+    border-radius: 6px; padding: 9px 11px; font: inherit;
+  }
+  input[type=text]:focus, input[type=url]:focus, textarea:focus, select:focus { outline: none; border-color: var(--accent); }
+  textarea { resize: vertical; min-height: 80px; }
+  .row { display: grid; gap: 12px; }
+  .row.two { grid-template-columns: 1fr 1fr; }
+  .row.three { grid-template-columns: 2fr 1fr 1fr; }
+  button {
+    background: var(--accent); color: white; border: 0; border-radius: 6px;
+    padding: 10px 18px; font: 600 14px inherit; cursor: pointer;
+  }
+  button:hover:not(:disabled) { background: var(--accent-2); }
+  button:disabled { background: #2a3142; color: #5d6478; cursor: not-allowed; }
+  button.secondary { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+  button.secondary:hover { color: var(--text); border-color: var(--text); }
+  .status { font-size: 13px; color: var(--muted); margin-top: 10px; min-height: 18px; }
+  .status.err { color: var(--err); }
+  .status.ok { color: var(--ok); }
+  .transcript {
+    background: #0c0f15; border: 1px solid var(--border); border-radius: 6px;
+    padding: 10px 12px; font: 12px/1.5 ui-monospace, monospace; color: var(--muted);
+    max-height: 140px; overflow: auto; white-space: pre-wrap;
+  }
+  details summary { cursor: pointer; color: var(--muted); font-size: 12px; margin-bottom: 6px; }
+  details[open] summary { margin-bottom: 8px; }
+  .hidden { display: none !important; }
+  .char-count { font-size: 11px; color: var(--muted); text-align: right; margin-top: 2px; }
+  .char-count.over { color: var(--warn); }
+  .result { background: #0c0f15; border: 1px solid var(--ok); border-radius: 6px; padding: 14px; }
+  .result a { color: var(--accent); }
+  .spinner { display: inline-block; width: 12px; height: 12px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; vertical-align: -2px; margin-right: 6px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>TikTok → Meta Ad</h1>
+    <a href="/">← back to dashboard</a>
+  </header>
+
+  <div class="panel">
+    <h2>1. Source</h2>
+    <label for="tt-url">TikTok URL</label>
+    <div class="row three">
+      <input id="tt-url" type="url" placeholder="https://www.tiktok.com/@user/video/1234567890" />
+      <button id="analyze-btn">Analyze video</button>
+      <button id="reset-btn" class="secondary" type="button">Reset</button>
+    </div>
+    <div id="analyze-status" class="status"></div>
+  </div>
+
+  <div id="copy-panel" class="panel hidden">
+    <h2>2. Generated copy (edit as needed)</h2>
+    <details>
+      <summary>Show transcript</summary>
+      <div id="transcript" class="transcript"></div>
+    </details>
+
+    <div style="margin-top: 14px;">
+      <label for="primary-text">Primary text <span style="color: var(--muted);">(target ≤ 125)</span></label>
+      <textarea id="primary-text" maxlength="2200"></textarea>
+      <div class="char-count" id="primary-text-count"></div>
+    </div>
+
+    <div class="row two" style="margin-top: 10px;">
+      <div>
+        <label for="headline">Headline <span style="color: var(--muted);">(target ≤ 40)</span></label>
+        <input id="headline" type="text" maxlength="255" />
+        <div class="char-count" id="headline-count"></div>
+      </div>
+      <div>
+        <label for="description">Description <span style="color: var(--muted);">(target ≤ 30)</span></label>
+        <input id="description" type="text" maxlength="255" />
+        <div class="char-count" id="description-count"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="publish-panel" class="panel hidden">
+    <h2>3. Ad setup</h2>
+
+    <div class="row two">
+      <div>
+        <label for="ad-name">Ad name</label>
+        <input id="ad-name" type="text" />
+      </div>
+      <div>
+        <label for="cta-type">Call to action</label>
+        <select id="cta-type">
+          <option value="SHOP_NOW" selected>Shop Now</option>
+          <option value="LEARN_MORE">Learn More</option>
+          <option value="SIGN_UP">Sign Up</option>
+          <option value="GET_OFFER">Get Offer</option>
+          <option value="ORDER_NOW">Order Now</option>
+        </select>
+      </div>
+    </div>
+
+    <div style="margin-top: 12px;">
+      <label for="destination-url">Destination URL</label>
+      <input id="destination-url" type="url" value="https://tryfleur.com/products/bloom-hair-scalp-serum-longform" />
+    </div>
+
+    <div style="margin-top: 14px; display:flex; justify-content:space-between; align-items:center;">
+      <div>
+        <label>Target</label>
+        <div style="display:flex;gap:16px;font-size:13px;">
+          <label style="display:flex;align-items:center;gap:6px;color:var(--text);margin:0;">
+            <input type="radio" name="target-mode" value="existing_adset" checked /> Existing ad set
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;color:var(--text);margin:0;">
+            <input type="radio" name="target-mode" value="new_adset" /> New ad set in campaign
+          </label>
+        </div>
+      </div>
+      <button id="refresh-meta-btn" class="secondary" type="button" title="Re-fetch campaigns + ad sets from Meta">↻ Refresh</button>
+    </div>
+
+    <div id="mode-existing" style="margin-top: 12px;">
+      <label for="adset-id">Ad set</label>
+      <select id="adset-id"><option value="">Loading…</option></select>
+    </div>
+
+    <div id="mode-new" class="hidden" style="margin-top: 12px;">
+      <label for="campaign-id">Campaign</label>
+      <select id="campaign-id"><option value="">Loading…</option></select>
+      <div id="campaign-objective" style="font-size:11px;color:var(--muted);margin-top:4px;"></div>
+
+      <div class="row two" style="margin-top: 12px;">
+        <div>
+          <label for="new-adset-name">New ad set name</label>
+          <input id="new-adset-name" type="text" placeholder="e.g. TT-Bloom-Test-1" />
+        </div>
+        <div>
+          <label for="new-adset-budget">Daily budget (USD)</label>
+          <input id="new-adset-budget" type="text" inputmode="decimal" placeholder="25.00" />
+        </div>
+      </div>
+
+      <div id="clone-info" class="hidden" style="margin-top:8px;font-size:12px;color:var(--muted);">
+        Targeting, optimization goal, billing event, bid strategy, and pixel will be cloned from
+        <span id="clone-template-name" style="color:var(--text);"></span>.
+      </div>
+
+      <div id="fresh-form" class="hidden" style="margin-top:14px;border-top:1px solid var(--border);padding-top:14px;">
+        <div style="font-size:12px;color:var(--warn);margin-bottom:10px;">
+          This campaign has no existing ad sets to clone from — fill these fields manually.
+        </div>
+        <div class="row two">
+          <div>
+            <label for="optimization-goal">Optimization goal</label>
+            <select id="optimization-goal">
+              <option value="OFFSITE_CONVERSIONS">Offsite Conversions</option>
+              <option value="LANDING_PAGE_VIEWS">Landing Page Views</option>
+              <option value="LINK_CLICKS">Link Clicks</option>
+              <option value="IMPRESSIONS">Impressions</option>
+              <option value="REACH">Reach</option>
+              <option value="THRUPLAY">ThruPlay (video)</option>
+              <option value="VIDEO_VIEWS">Video Views</option>
+            </select>
+          </div>
+          <div>
+            <label for="billing-event">Billing event</label>
+            <select id="billing-event">
+              <option value="IMPRESSIONS" selected>Impressions</option>
+              <option value="LINK_CLICKS">Link Clicks</option>
+              <option value="THRUPLAY">ThruPlay</option>
+            </select>
+          </div>
+        </div>
+        <div class="row two" style="margin-top:10px;">
+          <div>
+            <label for="bid-strategy">Bid strategy</label>
+            <select id="bid-strategy">
+              <option value="LOWEST_COST_WITHOUT_CAP" selected>Lowest cost</option>
+              <option value="LOWEST_COST_WITH_BID_CAP">Lowest cost (with bid cap)</option>
+              <option value="COST_CAP">Cost cap</option>
+            </select>
+          </div>
+          <div>
+            <label for="pixel-id">Pixel ID <span style="color:var(--muted);">(for conversions)</span></label>
+            <input id="pixel-id" type="text" placeholder="optional" />
+          </div>
+        </div>
+        <div style="margin-top:10px;">
+          <label for="custom-event">Conversion event <span style="color:var(--muted);">(if pixel set)</span></label>
+          <select id="custom-event">
+            <option value="PURCHASE" selected>Purchase</option>
+            <option value="ADD_TO_CART">Add to Cart</option>
+            <option value="INITIATE_CHECKOUT">Initiate Checkout</option>
+            <option value="ADD_PAYMENT_INFO">Add Payment Info</option>
+            <option value="LEAD">Lead</option>
+            <option value="COMPLETE_REGISTRATION">Complete Registration</option>
+          </select>
+        </div>
+        <div style="margin-top:10px;">
+          <label for="targeting-json">Targeting (JSON)</label>
+          <textarea id="targeting-json" rows="6" style="font:12px/1.4 ui-monospace,monospace;"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top: 16px;">
+      <button id="publish-btn">Publish ad (ACTIVE)</button>
+    </div>
+    <div id="publish-status" class="status"></div>
+    <div id="publish-result" class="result hidden" style="margin-top: 14px;"></div>
+  </div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let currentJob = null;
+let allAdsets = [];
+let allCampaigns = [];
+const DEFAULT_TARGETING = {
+  geo_locations: { countries: ["US"] },
+  age_min: 18,
+  age_max: 65,
+  publisher_platforms: ["facebook", "instagram"],
+  facebook_positions: ["feed", "video_feeds", "story", "reels"],
+  instagram_positions: ["stream", "story", "reels", "explore"],
+};
+
+function setStatus(el, msg, kind) {
+  el.classList.remove('err', 'ok');
+  if (kind) el.classList.add(kind);
+  el.innerHTML = msg ? (kind === 'loading' ? '<span class="spinner"></span>' + msg : msg) : '';
+}
+
+function updateCount(srcId, targetMax) {
+  const el = $(srcId);
+  const counter = $(srcId + '-count');
+  const n = el.value.length;
+  counter.textContent = n + ' chars';
+  counter.classList.toggle('over', n > targetMax);
+}
+
+['primary-text', 'headline', 'description'].forEach((id, i) => {
+  const max = [125, 40, 30][i];
+  $(id).addEventListener('input', () => updateCount(id, max));
+});
+
+async function loadAdsets(force = false) {
+  const sel = $('adset-id');
+  try {
+    const r = await fetch('/api/tiktok-ad/adsets' + (force ? '?force=1' : ''));
+    const body = await r.json();
+    if (!r.ok) throw new Error(body.error || r.statusText);
+    allAdsets = body.adsets || [];
+    sel.innerHTML = '<option value="">— pick an ad set —</option>';
+    const byCampaign = {};
+    for (const a of allAdsets) {
+      const camp = a.campaign_name || '(no campaign)';
+      (byCampaign[camp] = byCampaign[camp] || []).push(a);
+    }
+    for (const camp of Object.keys(byCampaign).sort()) {
+      const group = document.createElement('optgroup');
+      group.label = camp;
+      for (const a of byCampaign[camp]) {
+        const opt = document.createElement('option');
+        opt.value = a.id;
+        opt.textContent = a.name + ' [' + (a.effective_status || a.status) + ']';
+        group.appendChild(opt);
+      }
+      sel.appendChild(group);
+    }
+  } catch (e) {
+    sel.innerHTML = '<option value="">Error: ' + e.message + '</option>';
+  }
+}
+
+async function loadCampaigns(force = false) {
+  const sel = $('campaign-id');
+  try {
+    const r = await fetch('/api/tiktok-ad/campaigns' + (force ? '?force=1' : ''));
+    const body = await r.json();
+    if (!r.ok) throw new Error(body.error || r.statusText);
+    allCampaigns = body.campaigns || [];
+    sel.innerHTML = '<option value="">— pick a campaign —</option>';
+    for (const c of allCampaigns) {
+      const opt = document.createElement('option');
+      opt.value = c.id;
+      opt.textContent = c.name + ' [' + (c.effective_status || c.status) + ']';
+      sel.appendChild(opt);
+    }
+  } catch (e) {
+    sel.innerHTML = '<option value="">Error: ' + e.message + '</option>';
+  }
+}
+
+function onCampaignChange() {
+  const id = $('campaign-id').value;
+  const camp = allCampaigns.find(c => c.id === id);
+  $('campaign-objective').textContent = camp ? ('Objective: ' + (camp.objective || 'unknown')) : '';
+  const inCampaign = allAdsets.filter(a => a.campaign_id === id);
+  const cloneInfo = $('clone-info');
+  const freshForm = $('fresh-form');
+  if (!id) {
+    cloneInfo.classList.add('hidden');
+    freshForm.classList.add('hidden');
+    return;
+  }
+  if (inCampaign.length > 0) {
+    inCampaign.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    $('clone-template-name').textContent = '"' + inCampaign[0].name + '"';
+    cloneInfo.classList.remove('hidden');
+    freshForm.classList.add('hidden');
+  } else {
+    cloneInfo.classList.add('hidden');
+    freshForm.classList.remove('hidden');
+    if (!$('targeting-json').value.trim()) {
+      $('targeting-json').value = JSON.stringify(DEFAULT_TARGETING, null, 2);
+    }
+  }
+}
+
+function onModeChange() {
+  const mode = document.querySelector('input[name="target-mode"]:checked').value;
+  $('mode-existing').classList.toggle('hidden', mode !== 'existing_adset');
+  $('mode-new').classList.toggle('hidden', mode !== 'new_adset');
+}
+
+document.querySelectorAll('input[name="target-mode"]').forEach(r => r.addEventListener('change', onModeChange));
+$('campaign-id').addEventListener('change', onCampaignChange);
+$('refresh-meta-btn').addEventListener('click', async () => {
+  const btn = $('refresh-meta-btn');
+  btn.disabled = true;
+  const prev = btn.textContent;
+  btn.textContent = '↻ Refreshing…';
+  try {
+    await Promise.all([loadAdsets(true), loadCampaigns(true)]);
+    if ($('campaign-id').value) onCampaignChange();
+  } finally {
+    btn.disabled = false;
+    btn.textContent = prev;
+  }
+});
+
+function slugFromUrl(url) {
+  const m = url.match(/video\/(\d+)/);
+  const id = m ? m[1] : 'tiktok';
+  const ts = new Date().toISOString().slice(0, 16).replace(/[-:T]/g, '');
+  return `TT-${id}-${ts}`;
+}
+
+$('analyze-btn').addEventListener('click', async () => {
+  const url = $('tt-url').value.trim();
+  if (!url) { setStatus($('analyze-status'), 'Enter a TikTok URL.', 'err'); return; }
+  $('analyze-btn').disabled = true;
+  setStatus($('analyze-status'), 'Downloading + transcribing + generating copy…', 'loading');
+  try {
+    const r = await fetch('/api/tiktok-ad/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url }),
+    });
+    const body = await r.json();
+    if (!r.ok) throw new Error(body.error || r.statusText);
+    currentJob = body.job_id;
+    $('transcript').textContent = body.transcript || '(no speech detected)';
+    $('primary-text').value = body.primary_text || '';
+    $('headline').value = body.headline || '';
+    $('description').value = body.description || '';
+    $('ad-name').value = slugFromUrl(url);
+    updateCount('primary-text', 125);
+    updateCount('headline', 40);
+    updateCount('description', 30);
+    $('copy-panel').classList.remove('hidden');
+    $('publish-panel').classList.remove('hidden');
+    setStatus($('analyze-status'), 'Done. Edit the copy below, then publish.', 'ok');
+  } catch (e) {
+    setStatus($('analyze-status'), 'Failed: ' + e.message, 'err');
+  } finally {
+    $('analyze-btn').disabled = false;
+  }
+});
+
+$('reset-btn').addEventListener('click', () => {
+  currentJob = null;
+  $('tt-url').value = '';
+  $('copy-panel').classList.add('hidden');
+  $('publish-panel').classList.add('hidden');
+  $('publish-result').classList.add('hidden');
+  setStatus($('analyze-status'), '');
+  setStatus($('publish-status'), '');
+});
+
+function buildPublishPayload() {
+  const mode = document.querySelector('input[name="target-mode"]:checked').value;
+  const base = {
+    job_id: currentJob,
+    primary_text: $('primary-text').value,
+    headline: $('headline').value,
+    description: $('description').value,
+    ad_name: $('ad-name').value,
+    destination_url: $('destination-url').value,
+    cta_type: $('cta-type').value,
+  };
+  if (mode === 'existing_adset') {
+    return { ...base, mode: 'existing_adset', adset_id: $('adset-id').value };
+  }
+  // new_adset
+  const campId = $('campaign-id').value;
+  const newName = $('new-adset-name').value.trim();
+  const budgetDollars = parseFloat($('new-adset-budget').value);
+  if (!campId) throw new Error('Pick a campaign');
+  if (!newName) throw new Error('Enter a name for the new ad set');
+  if (!isFinite(budgetDollars) || budgetDollars < 1) throw new Error('Daily budget must be at least $1.00');
+  const budgetCents = Math.round(budgetDollars * 100);
+  const inCampaign = allAdsets.filter(a => a.campaign_id === campId);
+  if (inCampaign.length > 0) {
+    return {
+      ...base,
+      mode: 'new_adset_cloned',
+      campaign_id: campId,
+      new_adset_name: newName,
+      new_adset_daily_budget_cents: budgetCents,
+    };
+  }
+  // fresh
+  let targeting;
+  try { targeting = JSON.parse($('targeting-json').value); }
+  catch (e) { throw new Error('Targeting JSON is invalid: ' + e.message); }
+  const pixel = $('pixel-id').value.trim();
+  const promoted_object = pixel
+    ? { pixel_id: pixel, custom_event_type: $('custom-event').value }
+    : null;
+  return {
+    ...base,
+    mode: 'new_adset_fresh',
+    campaign_id: campId,
+    new_adset_name: newName,
+    new_adset_daily_budget_cents: budgetCents,
+    targeting,
+    optimization_goal: $('optimization-goal').value,
+    billing_event: $('billing-event').value,
+    bid_strategy: $('bid-strategy').value,
+    promoted_object,
+  };
+}
+
+$('publish-btn').addEventListener('click', async () => {
+  if (!currentJob) { setStatus($('publish-status'), 'Analyze a video first.', 'err'); return; }
+  let payload;
+  try { payload = buildPublishPayload(); }
+  catch (e) { setStatus($('publish-status'), e.message, 'err'); return; }
+  $('publish-btn').disabled = true;
+  setStatus($('publish-status'), 'Uploading video to Meta, waiting for processing, creating ad…', 'loading');
+  $('publish-result').classList.add('hidden');
+  try {
+    const r = await fetch('/api/tiktok-ad/publish', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const body = await r.json();
+    if (!r.ok) throw new Error(body.error || r.statusText);
+    setStatus($('publish-status'), 'Ad published — ACTIVE.', 'ok');
+    const newAdsetLine = body.created_adset_id
+      ? `<div><strong>New ad set ID:</strong> ${body.created_adset_id} (ACTIVE)</div>`
+      : `<div><strong>Ad set ID:</strong> ${body.adset_id}</div>`;
+    $('publish-result').innerHTML =
+      `<div><strong>Ad ID:</strong> ${body.ad_id}</div>` +
+      `<div><strong>Creative ID:</strong> ${body.creative_id}</div>` +
+      `<div><strong>Video ID:</strong> ${body.video_id}</div>` +
+      newAdsetLine +
+      `<div style="margin-top:8px;"><a href="${body.ads_manager_url}" target="_blank" rel="noopener">Open in Ads Manager →</a></div>`;
+    $('publish-result').classList.remove('hidden');
+    currentJob = null;
+  } catch (e) {
+    setStatus($('publish-status'), 'Failed: ' + e.message, 'err');
+  } finally {
+    $('publish-btn').disabled = false;
+  }
+});
+
+loadAdsets();
+loadCampaigns();
+</script>
+</body>
+</html>

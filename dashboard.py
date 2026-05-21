@@ -675,6 +675,7 @@ def build_html(rows: list[dict], date_preset: str, generated_at: str,
     <div class="meta">Window: {date_preset.replace('_', ' ')} &middot; {len(active)} campaigns with spend &middot; {len(rows)} total</div>
   </div>
   <div class="refresh-wrap">
+    <a href="/tiktok-ad" style="color:#4f8cff;text-decoration:none;font-size:13px;margin-right:14px;">+ Create ad from TikTok</a>
     <div class="refresh-status" id="refreshStatus">Generated {generated_at}</div>
     <button class="refresh-btn" id="refreshBtn" style="display:none">
       <span class="spinner"></span>
