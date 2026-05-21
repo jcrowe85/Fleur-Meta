@@ -1,8 +1,0 @@
-# Adds ffmpeg via apt on top of the auto-detected Python provider. Apt-installed
-# binaries land in /usr/bin (always on PATH at runtime), whereas nixPkgs can put
-# the binary in the Nix store but not in PATH.
-[phases.setup]
-aptPkgs = ["ffmpeg"]
-
-[start]
-cmd = "python3 server.py --host 0.0.0.0"
